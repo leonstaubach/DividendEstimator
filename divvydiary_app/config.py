@@ -29,6 +29,7 @@ class AppConfig:
     api_key: str
     user_id: str
     portfolio_id: str
+    log_level: str = "DEBUG"
     base_url: str = "https://api.divvydiary.com"
     cache_file: Path = Path(".cache/divvydiary_cache.json")
     cache_ttl_seconds: int = 3600
@@ -42,6 +43,7 @@ class AppConfig:
             api_key=os.getenv("DIVVYDIARY_API_KEY", ""),
             user_id=os.getenv("DIVVYDIARY_USER_ID", ""),
             portfolio_id=os.getenv("DIVVYDIARY_PORTFOLIO_ID", ""),
+            log_level=os.getenv("DIVVYDIARY_LOG_LEVEL", "DEBUG"),
             cache_file=Path(cache_file) if cache_file else env_path.parent / ".cache" / "divvydiary_cache.json",
             cache_ttl_seconds=int(os.getenv("DIVVYDIARY_CACHE_TTL_SECONDS", "3600")),
         )

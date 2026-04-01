@@ -45,10 +45,5 @@ class PortfolioService:
         histories = self.build_security_dividend_histories(resolved_portfolio)
         return [self.build_estimated_security_dividend_history(history) for history in histories]
 
-    def serialize_histories(
-        self, histories: list[EstimatedSecurityDividendHistory]
-    ) -> list[dict[str, object]]:
-        return [history.to_dict() for history in histories]
-
     def clear_cache(self) -> None:
         self.client.clear_cache()

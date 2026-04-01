@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -110,9 +110,6 @@ class SecurityDividendHistory:
     security: Security
     dividends: list[DividendEvent]
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
 
 @dataclass
 class ForecastDividendEvent:
@@ -138,6 +135,3 @@ class EstimatedSecurityDividendHistory:
     security: Security
     dividends: list[DividendEvent]
     estimate: DividendEstimate
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)

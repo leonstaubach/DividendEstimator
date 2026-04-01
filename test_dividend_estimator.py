@@ -16,6 +16,8 @@ from divvydiary_app.cli import (
     surrounding_months,
 )
 from divvydiary_app.estimator import DividendEstimator
+from divvydiary_app.logging_config import get_logger
+from divvydiary_app.logging_config import configure_logging
 from divvydiary_app.models import (
     DividendEvent,
     DividendEstimate,
@@ -279,22 +281,25 @@ class FileCacheTests(unittest.TestCase):
 
 
 class ClientCachingTests(unittest.TestCase):
+    def setUp(self) -> None:
+        configure_logging("DEBUG")
+
     def test_client_uses_cache_for_portfolio_and_dividends(self) -> None:
         with TemporaryDirectory() as temp_dir:
             cache = FileCache(Path(temp_dir) / "cache.json", ttl_seconds=3600)
-            messages: list[str] = []
             config = AppConfig(
                 api_key="token",
                 user_id="",
                 portfolio_id="123",
                 cache_file=Path(temp_dir) / "cache.json",
             )
-            client = RecordingClient(config, cache=cache, log_func=messages.append)
+            client = RecordingClient(config, cache=cache)
 
-            first_portfolio = client.get_resolved_portfolio()
-            first_dividends = client.get_symbol_dividends("AAA111")
-            second_portfolio = client.get_resolved_portfolio()
-            second_dividends = client.get_symbol_dividends("AAA111")
+            with self.assertLogs("divvydiary_app", level="DEBUG") as captured_logs:
+                first_portfolio = client.get_resolved_portfolio()
+                first_dividends = client.get_symbol_dividends("AAA111")
+                second_portfolio = client.get_resolved_portfolio()
+                second_dividends = client.get_symbol_dividends("AAA111")
 
             self.assertEqual(first_portfolio.portfolio.name, "Portfolio")
             self.assertEqual(first_dividends[0]["amount"], 1.25)
@@ -302,31 +307,26 @@ class ClientCachingTests(unittest.TestCase):
             self.assertEqual(second_dividends[0]["amount"], 1.25)
             self.assertEqual(client.requests, ["/portfolios/123", "/symbols/AAA111"])
             self.assertEqual(
-                messages,
+                captured_logs.output,
                 [
-                    "Portfolio data: no valid cached data found, fetching from DivvyDiary API.",
-                    "DivvyDiary API call triggered: GET https://api.divvydiary.com/portfolios/123",
-                    "Dividend history for AAA111: no valid cached data found, fetching from DivvyDiary API.",
-                    "DivvyDiary API call triggered: GET https://api.divvydiary.com/symbols/AAA111",
-                    "Portfolio data: using pre-fetched cached data.",
-                    "Dividend history for AAA111: using pre-fetched cached data.",
+                    "DEBUG:divvydiary_app.client:Portfolio data: no valid cached data found, fetching from DivvyDiary API.",
+                    "DEBUG:divvydiary_app.client:DivvyDiary API call triggered: GET https://api.divvydiary.com/portfolios/123",
+                    "DEBUG:divvydiary_app.client:Dividend history for AAA111: no valid cached data found, fetching from DivvyDiary API.",
+                    "DEBUG:divvydiary_app.client:DivvyDiary API call triggered: GET https://api.divvydiary.com/symbols/AAA111",
+                    "DEBUG:divvydiary_app.client:Portfolio data: using pre-fetched cached data.",
+                    "DEBUG:divvydiary_app.client:Dividend history for AAA111: using pre-fetched cached data.",
                 ],
             )
 
 
 class RecordingClient(DivvyDiaryClient):
-    def __init__(
-        self,
-        config: AppConfig,
-        cache: FileCache | None = None,
-        log_func=None,
-    ) -> None:
-        super().__init__(config, cache=cache, log_func=log_func)
+    def __init__(self, config: AppConfig, cache: FileCache | None = None) -> None:
+        super().__init__(config, cache=cache)
         self.requests: list[str] = []
 
     def get_json(self, path: str, query: dict[str, str] | None = None) -> dict:
         self.requests.append(path)
-        self._log(f"DivvyDiary API call triggered: GET {self.config.base_url}{path}")
+        get_logger("client").debug("DivvyDiary API call triggered: GET %s%s", self.config.base_url, path)
         if path == "/portfolios/123":
             return {
                 "user": {"id": 1, "forename": "Test"},
@@ -532,7 +532,8 @@ class CliHelpersTests(unittest.TestCase):
         )
         service = PortfolioService(fake_client)
 
-        loaded_portfolio, sorted_histories = load_portfolio_data(service, lambda _: None)
+        with self.assertLogs("divvydiary_app.cli", level="INFO"):
+            loaded_portfolio, sorted_histories = load_portfolio_data(service)
 
         self.assertEqual(loaded_portfolio.portfolio.name, "Portfolio")
         self.assertEqual([history.security.isin for history in sorted_histories], ["BBB222", "AAA111"])

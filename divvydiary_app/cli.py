@@ -4,8 +4,11 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Callable
 
-from .models import DividendEvent, EstimatedSecurityDividendHistory
+from .logging_config import get_logger
+from .models import DividendEvent, EstimatedSecurityDividendHistory, ResolvedPortfolio, Security
 from .service import PortfolioService
+
+logger = get_logger("cli")
 
 
 @dataclass(frozen=True)
@@ -23,9 +26,8 @@ class MonthlyDividendRow:
 def run_cli(
     service: PortfolioService,
     input_func: Callable[[str], str] = input,
-    output_func: Callable[[str], None] = print,
 ) -> int:
-    resolved_portfolio, sorted_histories = load_portfolio_data(service, output_func)
+    resolved_portfolio, sorted_histories = load_portfolio_data(service)
 
     while True:
         print_main_menu(
@@ -33,22 +35,21 @@ def run_cli(
             resolved_portfolio.user.forename,
             resolved_portfolio.portfolio.currency,
             sorted_histories,
-            output_func,
         )
-        selected_option = prompt_main_menu(input_func, output_func)
+        selected_option = prompt_main_menu(input_func)
         if selected_option is None:
-            output_func("Goodbye.")
+            logger.info("Goodbye.")
             return 0
 
         if selected_option == "1":
-            print_monthly_dividend_view(sorted_histories, output_func=output_func)
-            wait_for_enter(input_func, output_func)
+            print_monthly_dividend_view(sorted_histories)
+            wait_for_enter(input_func)
             continue
 
         if selected_option == "r":
-            output_func("Clearing cached portfolio data...")
+            logger.info("Clearing cached portfolio data...")
             service.clear_cache()
-            resolved_portfolio, sorted_histories = load_portfolio_data(service, output_func)
+            resolved_portfolio, sorted_histories = load_portfolio_data(service)
             continue
 
         view_dividend_history(
@@ -57,20 +58,18 @@ def run_cli(
             resolved_portfolio.portfolio.currency,
             sorted_histories,
             input_func,
-            output_func,
         )
 
 
 def load_portfolio_data(
     service: PortfolioService,
-    output_func: Callable[[str], None],
-) -> tuple[object, list[EstimatedSecurityDividendHistory]]:
-    output_func("Loading portfolio...")
+) -> tuple[ResolvedPortfolio, list[EstimatedSecurityDividendHistory]]:
+    logger.info("Loading portfolio...")
     resolved_portfolio = service.get_resolved_portfolio()
-    output_func(f"Loaded portfolio '{resolved_portfolio.portfolio.name}'.")
-    output_func("Loading dividend histories and calculating estimates...")
+    logger.info("Loaded portfolio '%s'.", resolved_portfolio.portfolio.name)
+    logger.info("Loading dividend histories and calculating estimates...")
     estimated_histories = service.build_estimated_security_dividend_histories(resolved_portfolio)
-    output_func(f"Loaded dividend histories for {len(estimated_histories)} securities.")
+    logger.info("Loaded dividend histories for %s securities.", len(estimated_histories))
     return resolved_portfolio, sort_histories_by_value(estimated_histories)
 
 
@@ -79,31 +78,27 @@ def print_main_menu(
     user_forename: str,
     portfolio_currency: str | None,
     sorted_histories: list[EstimatedSecurityDividendHistory],
-    output_func: Callable[[str], None],
 ) -> None:
-    output_func("")
-    output_func(f"Portfolio: {portfolio_name}")
-    output_func(f"Total value: {format_currency(calculate_total_value(sorted_histories), portfolio_currency)}")
-    output_func("")
-    output_func("Menu")
-    output_func("1. View monthly dividends")
-    output_func("2. View dividend history")
-    output_func("r. Refresh data")
-    output_func("q. Quit")
-    output_func("")
+    logger.info("")
+    logger.info("Portfolio: %s", portfolio_name)
+    logger.info("Total value: %s", format_currency(calculate_total_value(sorted_histories), portfolio_currency))
+    logger.info("")
+    logger.info("Menu")
+    logger.info("1. View monthly dividends")
+    logger.info("2. View dividend history")
+    logger.info("r. Refresh data")
+    logger.info("q. Quit")
+    logger.info("")
 
 
-def prompt_main_menu(
-    input_func: Callable[[str], str],
-    output_func: Callable[[str], None],
-) -> str | None:
+def prompt_main_menu(input_func: Callable[[str], str]) -> str | None:
     while True:
         raw_value = input_func("Choose an option: ").strip().lower()
         if raw_value in {"q", "quit", "exit"}:
             return None
         if raw_value in {"1", "2", "r"}:
             return raw_value
-        output_func("Please enter 1, 2, r, or q.")
+        logger.info("Please enter 1, 2, r, or q.")
 
 
 def view_dividend_history(
@@ -112,7 +107,6 @@ def view_dividend_history(
     portfolio_currency: str | None,
     sorted_histories: list[EstimatedSecurityDividendHistory],
     input_func: Callable[[str], str],
-    output_func: Callable[[str], None],
 ) -> None:
     while True:
         print_portfolio_screen(
@@ -120,13 +114,12 @@ def view_dividend_history(
             user_forename,
             portfolio_currency,
             sorted_histories,
-            output_func,
         )
-        selected_history = prompt_for_selection(sorted_histories, input_func, output_func)
+        selected_history = prompt_for_selection(sorted_histories, input_func)
         if selected_history is None:
             return
 
-        print_security_details(selected_history, output_func)
+        print_security_details(selected_history)
 
 
 def print_portfolio_screen(
@@ -134,77 +127,80 @@ def print_portfolio_screen(
     user_forename: str,
     portfolio_currency: str | None,
     sorted_histories: list[EstimatedSecurityDividendHistory],
-    output_func: Callable[[str], None],
 ) -> None:
-    output_func("")
-    output_func(f"Portfolio: {portfolio_name}")
-    output_func(f"User: {user_forename}")
-    output_func(f"Total value: {format_currency(calculate_total_value(sorted_histories), portfolio_currency)}")
-    output_func("")
-    output_func("Current portfolio")
-    output_func("-" * 92)
-    output_func(f"{'#':>2}  {'Name':<34} {'ISIN':<14} {'Code':<10} {'Value':>14} {'Portfolio %':>12}")
-    output_func("-" * 92)
+    total_value = calculate_total_value(sorted_histories)
+    logger.info("")
+    logger.info("Portfolio: %s", portfolio_name)
+    logger.info("User: %s", user_forename)
+    logger.info("Total value: %s", format_currency(total_value, portfolio_currency))
+    logger.info("")
+    logger.info("Current portfolio")
+    logger.info("%s", "-" * 92)
+    logger.info("%s", f"{'#':>2}  {'Name':<34} {'ISIN':<14} {'Code':<10} {'Value':>14} {'Portfolio %':>12}")
+    logger.info("%s", "-" * 92)
 
     for index, history in enumerate(sorted_histories, start=1):
         security = history.security
         value = security_value(security)
-        output_func(
+        logger.info(
+            "%s",
             f"{index:>2}  "
             f"{truncate(security.name, 34):<34} "
             f"{security.isin:<14} "
             f"{truncate(security_code(security), 10):<10} "
             f"{format_amount(value):>14} "
-            f"{portfolio_percentage(value, sorted_histories):>11.2f}%"
+            f"{portfolio_percentage(value, total_value):>11.2f}%",
         )
 
-    output_func("-" * 92)
-    output_func("")
+    logger.info("%s", "-" * 92)
+    logger.info("")
 
 
 def print_monthly_dividend_view(
     histories: list[EstimatedSecurityDividendHistory],
     reference_date: date | None = None,
-    output_func: Callable[[str], None] = print,
 ) -> None:
     active_date = reference_date or date.today()
-    output_func("")
-    output_func("Monthly dividends")
+    logger.info("")
+    logger.info("Monthly dividends")
 
     for month_date in surrounding_months(active_date):
         rows = monthly_dividend_rows(histories, month_date)
         month_caption = describe_month(month_date, active_date)
-        output_func("")
-        output_func(month_caption)
-        output_func("-" * 107)
-        output_func(
-            f"{'Ex date':<12} {'Pay date':<12} {'Name':<26} {'Code':<10} {'Per share':>14} {'Total':>14} {'Est.':<6}"
+        logger.info("")
+        logger.info("%s", month_caption)
+        logger.info("%s", "-" * 107)
+        logger.info(
+            "%s",
+            f"{'Ex date':<12} {'Pay date':<12} {'Name':<26} {'Code':<10} {'Per share':>14} {'Total':>14} {'Est.':<6}",
         )
-        output_func("-" * 107)
+        logger.info("%s", "-" * 107)
         if not rows:
-            output_func("No dividend events found.")
+            logger.info("No dividend events found.")
             continue
 
         for row in rows:
-            output_func(
+            logger.info(
+                "%s",
                 f"{row.ex_date:<12} "
                 f"{row.pay_date:<12} "
                 f"{truncate(row.security_name, 26):<26} "
                 f"{truncate(row.security_code, 10):<10} "
                 f"{format_currency(row.amount_per_share, row.currency):>14} "
                 f"{format_currency(row.total_amount, row.currency):>14} "
-                f"{'yes' if row.is_estimated else 'no':<6}"
+                f"{'yes' if row.is_estimated else 'no':<6}",
             )
 
-        output_func("-" * 107)
-        output_func(
+        logger.info("%s", "-" * 107)
+        logger.info(
+            "%s",
             f"{'':<12} "
             f"{'':<12} "
             f"{'Total':<26} "
             f"{'':<10} "
             f"{'':>14} "
             f"{format_currency(sum_total_amount(rows), month_currency(rows)):>14} "
-            f"{'':<6}"
+            f"{'':<6}",
         )
 
 
@@ -301,30 +297,24 @@ def calculate_total_value(histories: list[EstimatedSecurityDividendHistory]) -> 
     return sum(security_value(history.security) for history in histories)
 
 
-def security_value(security: object) -> float:
-    value = getattr(security, "value", None)
-    if value is not None:
-        return float(value)
+def security_value(security: Security) -> float:
+    if security.value is not None:
+        return float(security.value)
 
-    quantity = getattr(security, "quantity", 0.0) or 0.0
-    price = getattr(security, "price", None)
-    if price is not None:
-        return float(quantity) * float(price)
+    if security.price is not None:
+        return float(security.quantity) * float(security.price)
 
     return 0.0
 
 
-def security_code(security: object) -> str:
-    symbol = getattr(security, "symbol", None)
-    wkn = getattr(security, "wkn", None)
-    return symbol or wkn or "-"
+def security_code(security: Security) -> str:
+    return security.symbol or security.wkn or "-"
 
 
 def portfolio_percentage(
     security_position_value: float,
-    histories: list[EstimatedSecurityDividendHistory],
+    total_value: float,
 ) -> float:
-    total_value = calculate_total_value(histories)
     if total_value == 0:
         return 0.0
     return (security_position_value / total_value) * 100
@@ -333,7 +323,6 @@ def portfolio_percentage(
 def prompt_for_selection(
     histories: list[EstimatedSecurityDividendHistory],
     input_func: Callable[[str], str],
-    output_func: Callable[[str], None],
 ) -> EstimatedSecurityDividendHistory | None:
     if not histories:
         return None
@@ -348,63 +337,62 @@ def prompt_for_selection(
             if 1 <= selected_index <= len(histories):
                 return histories[selected_index - 1]
 
-        output_func(f"Please enter a number between 1 and {len(histories)}, or 'q' to return.")
+        logger.info("Please enter a number between 1 and %s, or 'q' to return.", len(histories))
 
 
-def print_security_details(
-    history: EstimatedSecurityDividendHistory,
-    output_func: Callable[[str], None] = print,
-) -> None:
+def print_security_details(history: EstimatedSecurityDividendHistory) -> None:
     security = history.security
     estimate = history.estimate
     estimated_total_amount = estimate_total_amount(history)
-    output_func("")
-    output_func(f"Security: {security.name}")
-    output_func(f"ISIN: {security.isin}")
-    output_func(f"Code: {security_code(security)}")
-    output_func("")
-    output_func("Next dividend estimate")
-    output_func(f"Ex date: {estimate.next_ex_date or 'n/a'}")
-    output_func(f"Date: {estimate.next_payment_date or 'n/a'}")
-    output_func(f"Amount: {format_currency(estimate.next_payment_amount, security.currency, decimals=4)}")
-    output_func(f"Estimated total amount: {format_currency(estimated_total_amount, security.currency)}")
-    output_func(f"Confidence: {estimate.confidence}")
-    output_func(f"Basis: {estimate.basis}")
-    output_func("")
-    output_func("Upcoming 12-month forecast")
-    output_func("-" * 82)
-    output_func(f"{'Ex date':<12} {'Pay date':<12} {'Per share':>14} {'Total':>14} {'Currency':<10}")
-    output_func("-" * 82)
+    logger.info("")
+    logger.info("Security: %s", security.name)
+    logger.info("ISIN: %s", security.isin)
+    logger.info("Code: %s", security_code(security))
+    logger.info("")
+    logger.info("Next dividend estimate")
+    logger.info("Ex date: %s", estimate.next_ex_date or "n/a")
+    logger.info("Date: %s", estimate.next_payment_date or "n/a")
+    logger.info("Amount: %s", format_currency(estimate.next_payment_amount, security.currency, decimals=4))
+    logger.info("Estimated total amount: %s", format_currency(estimated_total_amount, security.currency))
+    logger.info("Confidence: %s", estimate.confidence)
+    logger.info("Basis: %s", estimate.basis)
+    logger.info("")
+    logger.info("Upcoming 12-month forecast")
+    logger.info("%s", "-" * 82)
+    logger.info("%s", f"{'Ex date':<12} {'Pay date':<12} {'Per share':>14} {'Total':>14} {'Currency':<10}")
+    logger.info("%s", "-" * 82)
 
     if not estimate.forecast_events:
-        output_func("No forecast events available.")
+        logger.info("No forecast events available.")
     else:
         for event in estimate.forecast_events:
-            output_func(
+            logger.info(
+                "%s",
                 f"{(event.ex_date or '-'): <12} "
                 f"{(event.pay_date or '-'): <12} "
                 f"{format_amount(event.amount, decimals=4):>14} "
                 f"{format_amount(event_total_amount(event.amount, security.quantity)):>14} "
-                f"{(event.currency or '-'): <10}"
+                f"{(event.currency or '-'): <10}",
             )
 
-    output_func("")
-    output_func("Historical dividend events from the last 2 years")
-    output_func("-" * 68)
-    output_func(f"{'Pay date':<12} {'Ex date':<12} {'Amount':>14} {'Currency':<10}")
-    output_func("-" * 68)
+    logger.info("")
+    logger.info("Historical dividend events from the last 2 years")
+    logger.info("%s", "-" * 68)
+    logger.info("%s", f"{'Pay date':<12} {'Ex date':<12} {'Amount':>14} {'Currency':<10}")
+    logger.info("%s", "-" * 68)
 
     recent_events = latest_historical_dividends(history)
     if not recent_events:
-        output_func("No historical dividend events found.")
+        logger.info("No historical dividend events found.")
         return
 
     for event in recent_events:
-        output_func(
+        logger.info(
+            "%s",
             f"{(event.pay_date or '-'): <12} "
             f"{(event.ex_date or '-'): <12} "
             f"{format_amount(event.amount, decimals=4):>14} "
-            f"{(event.currency or '-'): <10}"
+            f"{(event.currency or '-'): <10}",
         )
 
 
@@ -427,7 +415,7 @@ def latest_historical_dividends(
     return [
         event
         for event in historical_events
-        if (event_date(event) is not None and event_date(event) >= cutoff_date)
+        if event_date(event) is not None and event_date(event) >= cutoff_date
     ]
 
 
@@ -443,9 +431,7 @@ def event_date(event: DividendEvent) -> date | None:
 
 
 def estimate_total_amount(history: EstimatedSecurityDividendHistory) -> float | None:
-    if history.estimate.next_payment_amount is None:
-        return None
-    return history.estimate.next_payment_amount * history.security.quantity
+    return event_total_amount(history.estimate.next_payment_amount, history.security.quantity)
 
 
 def event_total_amount(amount: float | None, quantity: float) -> float | None:
@@ -468,11 +454,8 @@ def month_currency(rows: list[MonthlyDividendRow]) -> str | None:
     return None
 
 
-def wait_for_enter(
-    input_func: Callable[[str], str],
-    output_func: Callable[[str], None],
-) -> None:
-    output_func("")
+def wait_for_enter(input_func: Callable[[str], str]) -> None:
+    logger.info("")
     input_func("Press Enter to return to the menu...")
 
 
