@@ -30,13 +30,18 @@ class AppConfig:
     user_id: str
     portfolio_id: str
     base_url: str = "https://api.divvydiary.com"
+    cache_file: Path = Path(".cache/divvydiary_cache.json")
+    cache_ttl_seconds: int = 3600
 
     @classmethod
     def from_env(cls, env_file: Path | None = None) -> "AppConfig":
         env_path = env_file or Path(__file__).resolve().parent.parent / ".env"
         EnvLoader(env_path).load()
+        cache_file = os.getenv("DIVVYDIARY_CACHE_FILE")
         return cls(
             api_key=os.getenv("DIVVYDIARY_API_KEY", ""),
             user_id=os.getenv("DIVVYDIARY_USER_ID", ""),
             portfolio_id=os.getenv("DIVVYDIARY_PORTFOLIO_ID", ""),
+            cache_file=Path(cache_file) if cache_file else env_path.parent / ".cache" / "divvydiary_cache.json",
+            cache_ttl_seconds=int(os.getenv("DIVVYDIARY_CACHE_TTL_SECONDS", "3600")),
         )

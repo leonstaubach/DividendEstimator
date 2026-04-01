@@ -1,6 +1,7 @@
 import sys
 
 from divvydiary_app import AppConfig, DivvyDiaryClient, PortfolioService
+from divvydiary_app.cache import FileCache
 from divvydiary_app.cli import run_cli
 
 
@@ -13,7 +14,8 @@ def main() -> int:
         )
         return 1
 
-    client = DivvyDiaryClient(config)
+    cache = FileCache(config.cache_file, ttl_seconds=config.cache_ttl_seconds)
+    client = DivvyDiaryClient(config, cache=cache, log_func=print)
     service = PortfolioService(client)
 
     try:

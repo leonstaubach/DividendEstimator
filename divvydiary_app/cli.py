@@ -25,13 +25,7 @@ def run_cli(
     input_func: Callable[[str], str] = input,
     output_func: Callable[[str], None] = print,
 ) -> int:
-    output_func("Loading portfolio...")
-    resolved_portfolio = service.get_resolved_portfolio()
-    output_func(f"Loaded portfolio '{resolved_portfolio.portfolio.name}'.")
-    output_func("Loading dividend histories and calculating estimates...")
-    estimated_histories = service.build_estimated_security_dividend_histories(resolved_portfolio)
-    output_func(f"Loaded dividend histories for {len(estimated_histories)} securities.")
-    sorted_histories = sort_histories_by_value(estimated_histories)
+    resolved_portfolio, sorted_histories = load_portfolio_data(service, output_func)
 
     while True:
         print_main_menu(
@@ -51,6 +45,12 @@ def run_cli(
             wait_for_enter(input_func, output_func)
             continue
 
+        if selected_option == "r":
+            output_func("Clearing cached portfolio data...")
+            service.clear_cache()
+            resolved_portfolio, sorted_histories = load_portfolio_data(service, output_func)
+            continue
+
         view_dividend_history(
             resolved_portfolio.portfolio.name,
             resolved_portfolio.user.forename,
@@ -59,6 +59,19 @@ def run_cli(
             input_func,
             output_func,
         )
+
+
+def load_portfolio_data(
+    service: PortfolioService,
+    output_func: Callable[[str], None],
+) -> tuple[object, list[EstimatedSecurityDividendHistory]]:
+    output_func("Loading portfolio...")
+    resolved_portfolio = service.get_resolved_portfolio()
+    output_func(f"Loaded portfolio '{resolved_portfolio.portfolio.name}'.")
+    output_func("Loading dividend histories and calculating estimates...")
+    estimated_histories = service.build_estimated_security_dividend_histories(resolved_portfolio)
+    output_func(f"Loaded dividend histories for {len(estimated_histories)} securities.")
+    return resolved_portfolio, sort_histories_by_value(estimated_histories)
 
 
 def print_main_menu(
@@ -75,6 +88,7 @@ def print_main_menu(
     output_func("Menu")
     output_func("1. View monthly dividends")
     output_func("2. View dividend history")
+    output_func("r. Refresh data")
     output_func("q. Quit")
     output_func("")
 
@@ -87,9 +101,9 @@ def prompt_main_menu(
         raw_value = input_func("Choose an option: ").strip().lower()
         if raw_value in {"q", "quit", "exit"}:
             return None
-        if raw_value in {"1", "2"}:
+        if raw_value in {"1", "2", "r"}:
             return raw_value
-        output_func("Please enter 1, 2, or q.")
+        output_func("Please enter 1, 2, r, or q.")
 
 
 def view_dividend_history(

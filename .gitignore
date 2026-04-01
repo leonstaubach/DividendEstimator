@@ -34,4 +34,7 @@ dist/
 .vscode/
 .idea/
 .DS_Store
+
+# Project specific
 .codex
+.cache

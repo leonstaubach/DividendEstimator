@@ -49,3 +49,6 @@ class PortfolioService:
         self, histories: list[EstimatedSecurityDividendHistory]
     ) -> list[dict[str, object]]:
         return [history.to_dict() for history in histories]
+
+    def clear_cache(self) -> None:
+        self.client.clear_cache()

@@ -1,8 +1,14 @@
 import unittest
 
 from datetime import date
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
+from divvydiary_app.cache import FileCache
+from divvydiary_app.client import DivvyDiaryClient
+from divvydiary_app.config import AppConfig
 from divvydiary_app.cli import (
+    load_portfolio_data,
     estimate_total_amount,
     latest_historical_dividends,
     monthly_dividend_rows,
@@ -27,12 +33,16 @@ class FakeClient:
     def __init__(self, resolved_portfolio: ResolvedPortfolio, dividends_by_isin: dict[str, list[dict]]):
         self._resolved_portfolio = resolved_portfolio
         self._dividends_by_isin = dividends_by_isin
+        self.clear_cache_calls = 0
 
     def get_resolved_portfolio(self) -> ResolvedPortfolio:
         return self._resolved_portfolio
 
     def get_symbol_dividends(self, isin: str) -> list[dict]:
         return self._dividends_by_isin[isin]
+
+    def clear_cache(self) -> None:
+        self.clear_cache_calls += 1
 
 
 class DividendEstimatorTests(unittest.TestCase):
@@ -227,6 +237,128 @@ class PortfolioServiceEstimatorIntegrationTests(unittest.TestCase):
         self.assertEqual(estimated_histories[0].estimate.next_payment_amount, 1.10)
         self.assertEqual(len(estimated_histories[0].estimate.forecast_events), 4)
 
+    def test_service_clear_cache_delegates_to_client(self) -> None:
+        fake_client = FakeClient(
+            ResolvedPortfolio(
+                user=UserProfile(id=1, forename="Test"),
+                portfolio=Portfolio(id=1, name="Portfolio", currency="USD", acronym="P", securities=[]),
+            ),
+            {},
+        )
+
+        service = PortfolioService(fake_client)
+        service.clear_cache()
+
+        self.assertEqual(fake_client.clear_cache_calls, 1)
+
+
+class FileCacheTests(unittest.TestCase):
+    def test_returns_cached_value_before_ttl_and_expires_after_ttl(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            cache = FileCache(Path(temp_dir) / "cache.json", ttl_seconds=3600)
+            cache.set("portfolio:test", {"name": "Test"})
+
+            self.assertEqual(cache.get("portfolio:test"), {"name": "Test"})
+
+            cache.cache_file.write_text(
+                '{"entries": {"portfolio:test": {"stored_at": "2000-01-01T00:00:00+00:00", "value": {"name": "Test"}}}}',
+                encoding="utf-8",
+            )
+
+            self.assertIsNone(cache.get("portfolio:test"))
+
+    def test_clear_removes_cache_file(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            cache_file = Path(temp_dir) / "cache.json"
+            cache = FileCache(cache_file, ttl_seconds=3600)
+            cache.set("portfolio:test", {"name": "Test"})
+
+            cache.clear()
+
+            self.assertFalse(cache_file.exists())
+
+
+class ClientCachingTests(unittest.TestCase):
+    def test_client_uses_cache_for_portfolio_and_dividends(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            cache = FileCache(Path(temp_dir) / "cache.json", ttl_seconds=3600)
+            messages: list[str] = []
+            config = AppConfig(
+                api_key="token",
+                user_id="",
+                portfolio_id="123",
+                cache_file=Path(temp_dir) / "cache.json",
+            )
+            client = RecordingClient(config, cache=cache, log_func=messages.append)
+
+            first_portfolio = client.get_resolved_portfolio()
+            first_dividends = client.get_symbol_dividends("AAA111")
+            second_portfolio = client.get_resolved_portfolio()
+            second_dividends = client.get_symbol_dividends("AAA111")
+
+            self.assertEqual(first_portfolio.portfolio.name, "Portfolio")
+            self.assertEqual(first_dividends[0]["amount"], 1.25)
+            self.assertEqual(second_portfolio.portfolio.name, "Portfolio")
+            self.assertEqual(second_dividends[0]["amount"], 1.25)
+            self.assertEqual(client.requests, ["/portfolios/123", "/symbols/AAA111"])
+            self.assertEqual(
+                messages,
+                [
+                    "Portfolio data: no valid cached data found, fetching from DivvyDiary API.",
+                    "DivvyDiary API call triggered: GET https://api.divvydiary.com/portfolios/123",
+                    "Dividend history for AAA111: no valid cached data found, fetching from DivvyDiary API.",
+                    "DivvyDiary API call triggered: GET https://api.divvydiary.com/symbols/AAA111",
+                    "Portfolio data: using pre-fetched cached data.",
+                    "Dividend history for AAA111: using pre-fetched cached data.",
+                ],
+            )
+
+
+class RecordingClient(DivvyDiaryClient):
+    def __init__(
+        self,
+        config: AppConfig,
+        cache: FileCache | None = None,
+        log_func=None,
+    ) -> None:
+        super().__init__(config, cache=cache, log_func=log_func)
+        self.requests: list[str] = []
+
+    def get_json(self, path: str, query: dict[str, str] | None = None) -> dict:
+        self.requests.append(path)
+        self._log(f"DivvyDiary API call triggered: GET {self.config.base_url}{path}")
+        if path == "/portfolios/123":
+            return {
+                "user": {"id": 1, "forename": "Test"},
+                "portfolio": {
+                    "id": 123,
+                    "name": "Portfolio",
+                    "currency": "USD",
+                    "acronym": "P",
+                    "securities": [
+                        {
+                            "isin": "AAA111",
+                            "name": "Alpha",
+                            "quantity": 10,
+                            "currency": "USD",
+                        }
+                    ],
+                },
+            }
+        if path == "/symbols/AAA111":
+            return {
+                "dividends": [
+                    {
+                        "id": 1,
+                        "payDate": "2025-03-31",
+                        "amount": 1.25,
+                        "currency": "USD",
+                        "forecast": False,
+                    }
+                ]
+            }
+        raise AssertionError(f"Unexpected path: {path}")
+
 
 class CliHelpersTests(unittest.TestCase):
     def make_security(self, isin: str, name: str, value: float) -> Security:
@@ -371,6 +503,39 @@ class CliHelpersTests(unittest.TestCase):
 
         self.assertEqual(len(may_rows), 1)
         self.assertTrue(may_rows[0].is_estimated)
+
+    def test_load_portfolio_data_returns_sorted_histories(self) -> None:
+        lower_value_security = self.make_security("AAA111", "Alpha", 100.0)
+        higher_value_security = self.make_security("BBB222", "Beta", 200.0)
+        resolved_portfolio = ResolvedPortfolio(
+            user=UserProfile(id=1, forename="Test"),
+            portfolio=Portfolio(
+                id=1,
+                name="Portfolio",
+                currency="USD",
+                acronym="P",
+                securities=[lower_value_security, higher_value_security],
+            ),
+        )
+        fake_client = FakeClient(
+            resolved_portfolio,
+            {
+                "AAA111": [
+                    {"id": 1, "payDate": "2024-03-29", "amount": 1.00, "currency": "USD", "forecast": False},
+                    {"id": 2, "payDate": "2024-06-28", "amount": 1.00, "currency": "USD", "forecast": False},
+                ],
+                "BBB222": [
+                    {"id": 3, "payDate": "2024-03-29", "amount": 1.00, "currency": "USD", "forecast": False},
+                    {"id": 4, "payDate": "2024-06-28", "amount": 1.00, "currency": "USD", "forecast": False},
+                ],
+            },
+        )
+        service = PortfolioService(fake_client)
+
+        loaded_portfolio, sorted_histories = load_portfolio_data(service, lambda _: None)
+
+        self.assertEqual(loaded_portfolio.portfolio.name, "Portfolio")
+        self.assertEqual([history.security.isin for history in sorted_histories], ["BBB222", "AAA111"])
 
 
 if __name__ == "__main__":
