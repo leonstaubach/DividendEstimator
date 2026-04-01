@@ -14,6 +14,9 @@ class CadenceInfo:
 
 
 class DividendEstimator:
+    SEASONAL_BOUNDARY_SHIFT_DAYS = 14
+    RECENCY_WEIGHT_GROWTH = 1.5
+    TREND_BLEND_WEIGHT = 0.7
     CADENCE_BUCKETS = {
         "monthly": (25, 40),
         "quarterly": (70, 110),
@@ -188,9 +191,6 @@ class DividendEstimator:
         cadence_name: str,
         next_pay_date: date,
     ) -> list[DividendEvent]:
-        if cadence_name == "monthly":
-            return list(dividends)
-
         target_key = self._seasonal_key(cadence_name, next_pay_date)
         matches: list[DividendEvent] = []
         for dividend in dividends:
@@ -205,29 +205,46 @@ class DividendEstimator:
             return None
 
         x_values = list(range(len(amounts)))
-        x_mean = sum(x_values) / len(x_values)
-        y_mean = sum(amounts) / len(amounts)
-        denominator = sum((x_value - x_mean) ** 2 for x_value in x_values)
+        weights = [self.RECENCY_WEIGHT_GROWTH**index for index in range(len(amounts))]
+        weight_sum = sum(weights)
+        if weight_sum == 0:
+            return None
+
+        x_mean = sum(weight * x_value for weight, x_value in zip(weights, x_values)) / weight_sum
+        y_mean = sum(weight * amount for weight, amount in zip(weights, amounts)) / weight_sum
+        denominator = sum(
+            weight * (x_value - x_mean) ** 2
+            for weight, x_value in zip(weights, x_values)
+        )
         if denominator == 0:
             return None
 
         numerator = sum(
-            (x_value - x_mean) * (amount - y_mean)
-            for x_value, amount in zip(x_values, amounts)
+            weight * (x_value - x_mean) * (amount - y_mean)
+            for weight, x_value, amount in zip(weights, x_values, amounts)
         )
         slope = numerator / denominator
         intercept = y_mean - slope * x_mean
-        predicted_amount = intercept + slope * len(amounts)
+        regression_prediction = intercept + slope * len(amounts)
+        latest_amount = amounts[-1]
+        predicted_amount = (
+            self.TREND_BLEND_WEIGHT * regression_prediction
+            + (1 - self.TREND_BLEND_WEIGHT) * latest_amount
+        )
         return max(predicted_amount, 0.0)
 
     def _seasonal_key(self, cadence_name: str, pay_date: date) -> int:
+        normalized_date = self._normalize_seasonal_date(pay_date)
         if cadence_name == "quarterly":
-            return (pay_date.month - 1) // 3
+            return (normalized_date.month - 1) // 3
         if cadence_name == "semiannual":
-            return 0 if pay_date.month <= 6 else 1
+            return 0 if normalized_date.month <= 6 else 1
         if cadence_name == "annual":
-            return pay_date.month
-        return pay_date.month
+            return normalized_date.month
+        return normalized_date.month
+
+    def _normalize_seasonal_date(self, pay_date: date) -> date:
+        return pay_date - timedelta(days=self.SEASONAL_BOUNDARY_SHIFT_DAYS)
 
     def _parse_date(self, value: str | None) -> date:
         if value is None:

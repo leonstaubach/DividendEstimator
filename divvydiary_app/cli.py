@@ -70,7 +70,6 @@ def print_main_menu(
 ) -> None:
     output_func("")
     output_func(f"Portfolio: {portfolio_name}")
-    output_func(f"User: {user_forename}")
     output_func(f"Total value: {format_currency(calculate_total_value(sorted_histories), portfolio_currency)}")
     output_func("")
     output_func("Menu")

@@ -132,8 +132,8 @@ class DividendEstimatorTests(unittest.TestCase):
         estimate = self.estimator.estimate(history)
 
         self.assertEqual(estimate.next_ex_date, "2025-04-24")
-        self.assertAlmostEqual(estimate.next_payment_amount or 0.0, 0.65)
-        self.assertEqual(estimate.basis, "monthly_trend")
+        self.assertAlmostEqual(estimate.next_payment_amount or 0.0, 0.60)
+        self.assertEqual(estimate.basis, "monthly_last_payment_fallback")
         self.assertEqual(len(estimate.forecast_events), 12)
         self.assertEqual(estimate.forecast_events[0].pay_date, "2025-04-29")
         self.assertEqual(estimate.forecast_events[-1].pay_date, "2026-03-14")
@@ -158,7 +158,25 @@ class DividendEstimatorTests(unittest.TestCase):
         estimate = self.estimator.estimate(history)
 
         self.assertEqual(estimate.basis, "quarterly_trend")
-        self.assertAlmostEqual(estimate.next_payment_amount or 0.0, 1.3666666666666667)
+        self.assertAlmostEqual(estimate.next_payment_amount or 0.0, 1.3360810810810813)
+
+    def test_seasonal_slots_tolerate_small_month_boundary_shifts(self) -> None:
+        dividends = [
+            DividendEvent(1, "2023-09-18", "2023-10-02", 1.00, "USD", False),
+            DividendEvent(2, "2024-09-19", "2024-10-03", 1.10, "USD", False),
+            DividendEvent(3, "2025-09-20", "2025-09-30", 1.20, "USD", False),
+        ]
+
+        seasonal_dividends = self.estimator._seasonal_dividends(
+            dividends,
+            "quarterly",
+            date(2026, 10, 1),
+        )
+
+        self.assertEqual(
+            [dividend.pay_date for dividend in seasonal_dividends],
+            ["2023-10-02", "2024-10-03", "2025-09-30"],
+        )
 
 
 class PortfolioServiceEstimatorIntegrationTests(unittest.TestCase):
