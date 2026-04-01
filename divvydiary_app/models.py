@@ -115,11 +115,22 @@ class SecurityDividendHistory:
 
 
 @dataclass
+class ForecastDividendEvent:
+    ex_date: str | None
+    pay_date: str | None
+    amount: float | None
+    currency: str | None
+    forecast: bool = True
+
+
+@dataclass
 class DividendEstimate:
+    next_ex_date: str | None
     next_payment_date: str | None
     next_payment_amount: float | None
     confidence: str
     basis: str
+    forecast_events: list[ForecastDividendEvent]
 
 
 @dataclass
