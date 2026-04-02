@@ -252,6 +252,8 @@ class FastAPIAppTests(unittest.TestCase):
         self.assertIn("Local Portfolio", body)
         self.assertIn("Alpha Income", body)
         self.assertIn("Portfolio Holdings", body)
+        self.assertIn("What this tool does", body)
+        self.assertIn("pulls portfolio and dividend history data from DivvyDiary", body)
         self.assertIn("/security/AAA111", body)
 
     def test_monthly_page_renders_monthly_summaries(self) -> None:
