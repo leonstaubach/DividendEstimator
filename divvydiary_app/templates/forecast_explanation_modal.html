@@ -1,0 +1,82 @@
+<div class="modal-section">
+    <h3>Calculation Breakdown</h3>
+    <div class="modal-detail-grid">
+        {% if explanation.is_trend %}
+            <div class="detail-card">
+                <strong>Weighted trend prediction</strong><br>
+                <span class="numeric">{{ format_currency(explanation.regression_prediction, explanation.currency, 4) }}</span>
+            </div>
+            <div class="detail-card">
+                <strong>Latest matching dividend</strong><br>
+                <span class="numeric">{{ format_currency(explanation.latest_reference_amount, explanation.currency, 4) }}</span>
+            </div>
+            <div class="detail-card">
+                <strong>Blend formula</strong><br>
+                70% trend + 30% latest matching dividend
+            </div>
+            <div class="detail-card">
+                <strong>Final forecast amount</strong><br>
+                <span class="numeric">{{ format_currency(explanation.blended_prediction, explanation.currency, 4) }}</span>
+            </div>
+        {% else %}
+            <div class="detail-card">
+                <strong>Reference dividend amount</strong><br>
+                <span class="numeric">{{ format_currency(explanation.latest_reference_amount, explanation.currency, 4) }}</span>
+            </div>
+            <div class="detail-card">
+                <strong>Final forecast amount</strong><br>
+                <span class="numeric">{{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}</span>
+            </div>
+            <div class="detail-card">
+                <strong>Method note</strong><br>
+                {% if explanation.is_same_season %}
+                    Reused the latest dividend from the same seasonal slot.
+                {% else %}
+                    Reused the latest confirmed dividend as a fallback.
+                {% endif %}
+            </div>
+            <div class="detail-card">
+                <strong>Ex-date gap</strong><br>
+                {% if explanation.median_ex_to_pay_gap_days is not none %}
+                    <span class="numeric">{{ explanation.median_ex_to_pay_gap_days }}</span> day median ex-to-pay gap
+                {% else %}
+                    No ex-date estimate input available
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal-section">
+    <h3>Relevant Dividend Events Used For The Prediction</h3>
+    {% if explanation.relevant_rows %}
+        <div class="table-scroll table-scroll-compact">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Pay Date</th>
+                        <th>Ex Date</th>
+                        <th>Amount</th>
+                        <th>Currency</th>
+                        <th>Weight</th>
+                        <th>Ref.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in explanation.relevant_rows | sort(attribute='pay_date', reverse=True) %}
+                        <tr>
+                            <td class="numeric">{{ row.pay_date }}</td>
+                            <td class="numeric">{{ row.ex_date }}</td>
+                            <td class="numeric">{{ format_amount(row.amount, 4) }}</td>
+                            <td>{{ row.currency or "-" }}</td>
+                            <td class="numeric">{{ format_amount(row.weight, 4) if row.weight is not none else "-" }}</td>
+                            <td>{{ "yes" if row.is_reference else "no" }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p class="empty-state">No seasonal comparison events were available for this forecast.</p>
+    {% endif %}
+</div>

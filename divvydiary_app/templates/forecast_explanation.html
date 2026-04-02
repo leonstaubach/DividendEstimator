@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-shell">
+    <section class="hero">
+        <div class="hero-copy">
+            <span class="page-kicker">Forecast Reasoning</span>
+            <div>
+                <h1>Forecast Explanation</h1>
+                <p>Understand why this dividend was forecasted, which historical events were considered, and how the predicted amount was calculated.</p>
+            </div>
+            {% if explanation and security %}
+                <div class="hero-meta">
+                    <span class="meta-pill">{{ explanation.code }}</span>
+                    <span class="meta-pill">Forecast #{{ explanation.forecast_index }}</span>
+                </div>
+            {% endif %}
+        </div>
+        <div class="hero-actions">
+            <a href="/security/{{ security.isin if security else '' }}" role="button" class="secondary">Back to Security Details</a>
+        </div>
+    </section>
+
+    {% if error_message %}
+        <article class="section-card">
+            <div class="section-body">
+                <p>{{ error_message }}</p>
+            </div>
+        </article>
+    {% elif explanation and security %}
+        <article class="section-card">
+            <header>
+                <div>
+                    <span class="eyebrow">Security</span>
+                    <h2>{{ explanation.security_name }}</h2>
+                    <p>{{ explanation.isin }} · {{ explanation.code }} · Forecast #{{ explanation.forecast_index }}</p>
+                </div>
+            </header>
+            <div class="section-body">
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <strong>Prediction</strong><br>
+                        Payment Date: {{ explanation.predicted_pay_date or "n/a" }}<br>
+                        Dividend: {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}<br>
+                        {% if explanation.predicted_total_amount is not none %}Estimated Total: {{ format_currency(explanation.predicted_total_amount, explanation.currency) }}{% else %}Estimated Total: n/a{% endif %}
+                    </div>
+                    <div class="detail-card">
+                        <strong>Cadence</strong><br>
+                        {{ explanation.cadence_name.title() }} every {{ explanation.median_gap_days }} days<br>
+                        Latest pay date: {{ explanation.latest_pay_date }}
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <article class="section-card">
+            <header>
+                <div>
+                    <span class="eyebrow">Narrative</span>
+                    <h2>Why this forecast?</h2>
+                    <p>The estimator’s high-level reasoning in plain language.</p>
+                </div>
+            </header>
+            <div class="section-body">
+                <ul class="bullet-list">
+                    {% for line in explanation.summary_lines %}
+                        <li>{{ line }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </article>
+
+        <section class="section-shell">
+            <article class="section-card">
+                <header>
+                    <div>
+                        <span class="eyebrow">Reference Set</span>
+                        <h2>Relevant Dividend Events Used For The Prediction</h2>
+                        <p>The historical events the estimator considered most relevant for this forecast.</p>
+                    </div>
+                    <div class="header-actions">
+                        <span class="table-count">{{ explanation.relevant_rows|length }} rows</span>
+                    </div>
+                </header>
+                {% if explanation.relevant_rows %}
+                    <div class="table-scroll">
+                        <table class="sortable-table">
+                            <thead>
+                                <tr>
+                                    <th data-sortable data-sort-type="date">Pay Date</th>
+                                    <th data-sortable data-sort-type="date">Ex Date</th>
+                                    <th data-sortable data-sort-type="number">Amount</th>
+                                    <th data-sortable data-sort-type="text">Currency</th>
+                                    <th data-sortable data-sort-type="number">Weight</th>
+                                    <th>Used As Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in explanation.relevant_rows %}
+                                    <tr>
+                                        <td data-sort-value="{{ row.pay_date }}">{{ row.pay_date }}</td>
+                                        <td data-sort-value="{{ row.ex_date }}">{{ row.ex_date }}</td>
+                                        <td data-sort-value="{{ row.amount if row.amount is not none else '' }}">{{ format_amount(row.amount, 4) }}</td>
+                                        <td data-sort-value="{{ row.currency or '' }}">{{ row.currency or "-" }}</td>
+                                        <td data-sort-value="{{ row.weight if row.weight is not none else '' }}">{{ format_amount(row.weight, 4) if row.weight is not none else "-" }}</td>
+                                        <td>{{ "yes" if row.is_reference else "no" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="section-body">
+                        <p class="empty-state">No seasonal comparison events were available for this forecast.</p>
+                    </div>
+                {% endif %}
+            </article>
+
+            <article class="section-card">
+                <header>
+                    <div>
+                        <span class="eyebrow">Computation</span>
+                        <h2>Calculation Breakdown</h2>
+                        <p>The values the model combined to arrive at the final forecast amount.</p>
+                    </div>
+                </header>
+                <div class="section-body">
+                    <div class="detail-grid">
+                        {% if explanation.is_trend %}
+                            <div class="detail-card">
+                                <strong>Weighted trend prediction</strong><br>
+                                {{ format_currency(explanation.regression_prediction, explanation.currency, 4) }}
+                            </div>
+                            <div class="detail-card">
+                                <strong>Latest matching dividend</strong><br>
+                                {{ format_currency(explanation.latest_reference_amount, explanation.currency, 4) }}
+                            </div>
+                            <div class="detail-card">
+                                <strong>Blend formula</strong><br>
+                                70% trend + 30% latest matching dividend
+                            </div>
+                            <div class="detail-card">
+                                <strong>Final forecast amount</strong><br>
+                                {{ format_currency(explanation.blended_prediction, explanation.currency, 4) }}
+                            </div>
+                        {% else %}
+                            <div class="detail-card">
+                                <strong>Reference dividend amount</strong><br>
+                                {{ format_currency(explanation.latest_reference_amount, explanation.currency, 4) }}
+                            </div>
+                            <div class="detail-card">
+                                <strong>Final forecast amount</strong><br>
+                                {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}
+                            </div>
+                            <div class="detail-card">
+                                <strong>Method note</strong><br>
+                                {% if explanation.is_same_season %}
+                                    Reused the latest dividend from the same seasonal slot.
+                                {% else %}
+                                    Reused the latest confirmed dividend as a fallback.
+                                {% endif %}
+                            </div>
+                            <div class="detail-card">
+                                <strong>Ex-date gap</strong><br>
+                                {% if explanation.median_ex_to_pay_gap_days is not none %}
+                                    {{ explanation.median_ex_to_pay_gap_days }} day median ex-to-pay gap
+                                {% else %}
+                                    No ex-date estimate input available
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </article>
+
+            <article class="section-card">
+                <header>
+                    <div>
+                        <span class="eyebrow">History</span>
+                        <h2>All Historical Confirmed Dividends</h2>
+                        <p>The full confirmed dividend history available to the estimator.</p>
+                    </div>
+                    <div class="header-actions">
+                        <span class="table-count">{{ explanation.all_history_rows|length }} rows</span>
+                    </div>
+                </header>
+                {% if explanation.all_history_rows %}
+                    <div class="table-scroll">
+                        <table class="sortable-table">
+                            <thead>
+                                <tr>
+                                    <th data-sortable data-sort-type="date">Pay Date</th>
+                                    <th data-sortable data-sort-type="date">Ex Date</th>
+                                    <th data-sortable data-sort-type="number">Amount</th>
+                                    <th data-sortable data-sort-type="text">Currency</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in explanation.all_history_rows %}
+                                    <tr>
+                                        <td data-sort-value="{{ row.pay_date }}">{{ row.pay_date }}</td>
+                                        <td data-sort-value="{{ row.ex_date }}">{{ row.ex_date }}</td>
+                                        <td data-sort-value="{{ row.amount if row.amount is not none else '' }}">{{ format_amount(row.amount, 4) }}</td>
+                                        <td data-sort-value="{{ row.currency or '' }}">{{ row.currency or "-" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="section-body">
+                        <p class="empty-state">No confirmed dividend history available.</p>
+                    </div>
+                {% endif %}
+            </article>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

@@ -13,6 +13,39 @@ class CadenceInfo:
     median_gap_days: int
 
 
+@dataclass(frozen=True)
+class WeightedTrendPoint:
+    pay_date: str
+    amount: float
+    weight: float
+
+
+@dataclass(frozen=True)
+class TrendAnalysis:
+    points: list[WeightedTrendPoint]
+    regression_prediction: float
+    latest_amount: float
+    blended_prediction: float
+
+
+@dataclass(frozen=True)
+class ForecastExplanation:
+    steps_ahead: int
+    cadence: CadenceInfo
+    latest_pay_date: str
+    predicted_pay_date: str | None
+    predicted_ex_date: str | None
+    predicted_amount: float | None
+    confidence: str
+    basis: str
+    all_confirmed_dividends: list[DividendEvent]
+    seasonal_dividends: list[DividendEvent]
+    latest_dividend: DividendEvent
+    chosen_reference_dividend: DividendEvent | None
+    trend_analysis: TrendAnalysis | None
+    median_ex_to_pay_gap_days: int | None
+
+
 class DividendEstimator:
     SEASONAL_BOUNDARY_SHIFT_DAYS = 14
     RECENCY_WEIGHT_GROWTH = 1.5
@@ -124,9 +157,9 @@ class DividendEstimator:
 
         next_pay_date = self._parse_date(payment_date)
         seasonal_dividends = self._seasonal_dividends(dividends, cadence.name, next_pay_date)
-        trend_amount = self._estimate_trend_amount(seasonal_dividends)
-        if trend_amount is not None:
-            return trend_amount, f"{cadence.name}_trend"
+        trend_analysis = self._trend_analysis(seasonal_dividends)
+        if trend_analysis is not None:
+            return trend_analysis.blended_prediction, f"{cadence.name}_trend"
 
         if seasonal_dividends:
             return seasonal_dividends[-1].amount, f"{cadence.name}_same_season"
@@ -185,6 +218,58 @@ class DividendEstimator:
 
         return forecast_events
 
+    def explain_forecast(
+        self,
+        history: SecurityDividendHistory,
+        steps_ahead: int = 1,
+    ) -> ForecastExplanation | None:
+        confirmed_dividends = self._confirmed_dividends(history)
+        if len(confirmed_dividends) < 2:
+            return None
+
+        cadence = self._detect_cadence(confirmed_dividends)
+        if cadence is None:
+            return None
+
+        payment_date = self._estimate_next_payment_date(confirmed_dividends, cadence, steps_ahead)
+        ex_date = self._estimate_next_ex_date(confirmed_dividends, payment_date)
+        predicted_amount, basis = self._estimate_payment_amount(confirmed_dividends, cadence, payment_date)
+        confidence = "high" if basis.endswith(("same_season", "trend")) else "medium"
+        latest_dividend = confirmed_dividends[-1]
+        seasonal_dividends: list[DividendEvent] = []
+        trend_analysis: TrendAnalysis | None = None
+        chosen_reference_dividend: DividendEvent | None = None
+
+        if payment_date is not None:
+            next_pay_date = self._parse_date(payment_date)
+            seasonal_dividends = self._seasonal_dividends(confirmed_dividends, cadence.name, next_pay_date)
+            trend_analysis = self._trend_analysis(seasonal_dividends)
+            if basis.endswith("_trend") and seasonal_dividends:
+                chosen_reference_dividend = seasonal_dividends[-1]
+            elif basis.endswith("_same_season") and seasonal_dividends:
+                chosen_reference_dividend = seasonal_dividends[-1]
+            elif basis.endswith("_last_payment_fallback"):
+                chosen_reference_dividend = latest_dividend
+
+        median_ex_to_pay_gap_days = self._median_ex_to_pay_gap_days(confirmed_dividends)
+
+        return ForecastExplanation(
+            steps_ahead=steps_ahead,
+            cadence=cadence,
+            latest_pay_date=latest_dividend.pay_date or "",
+            predicted_pay_date=payment_date,
+            predicted_ex_date=ex_date,
+            predicted_amount=predicted_amount,
+            confidence=confidence,
+            basis=basis,
+            all_confirmed_dividends=confirmed_dividends,
+            seasonal_dividends=seasonal_dividends,
+            latest_dividend=latest_dividend,
+            chosen_reference_dividend=chosen_reference_dividend,
+            trend_analysis=trend_analysis,
+            median_ex_to_pay_gap_days=median_ex_to_pay_gap_days,
+        )
+
     def _seasonal_dividends(
         self,
         dividends: list[DividendEvent],
@@ -200,6 +285,12 @@ class DividendEstimator:
         return matches
 
     def _estimate_trend_amount(self, dividends: list[DividendEvent]) -> float | None:
+        trend_analysis = self._trend_analysis(dividends)
+        if trend_analysis is None:
+            return None
+        return trend_analysis.blended_prediction
+
+    def _trend_analysis(self, dividends: list[DividendEvent]) -> TrendAnalysis | None:
         amounts = [dividend.amount for dividend in dividends if dividend.amount is not None]
         if len(amounts) < 3:
             return None
@@ -231,7 +322,31 @@ class DividendEstimator:
             self.TREND_BLEND_WEIGHT * regression_prediction
             + (1 - self.TREND_BLEND_WEIGHT) * latest_amount
         )
-        return max(predicted_amount, 0.0)
+        blended_prediction = max(predicted_amount, 0.0)
+        usable_dividends = [dividend for dividend in dividends if dividend.amount is not None]
+        return TrendAnalysis(
+            points=[
+                WeightedTrendPoint(
+                    pay_date=dividend.pay_date or "-",
+                    amount=dividend.amount or 0.0,
+                    weight=weight,
+                )
+                for dividend, weight in zip(usable_dividends, weights)
+            ],
+            regression_prediction=max(regression_prediction, 0.0),
+            latest_amount=latest_amount,
+            blended_prediction=blended_prediction,
+        )
+
+    def _median_ex_to_pay_gap_days(self, dividends: list[DividendEvent]) -> int | None:
+        ex_to_pay_gaps = [
+            (self._parse_date(dividend.pay_date) - self._parse_date(dividend.ex_date)).days
+            for dividend in dividends
+            if dividend.pay_date is not None and dividend.ex_date is not None
+        ]
+        if not ex_to_pay_gaps:
+            return None
+        return int(median(ex_to_pay_gaps))
 
     def _seasonal_key(self, cadence_name: str, pay_date: date) -> int:
         normalized_date = self._normalize_seasonal_date(pay_date)

@@ -172,6 +172,52 @@ class DividendEstimatorTests(unittest.TestCase):
         self.assertEqual(estimate.basis, "quarterly_trend")
         self.assertAlmostEqual(estimate.next_payment_amount or 0.0, 1.3360810810810813)
 
+    def test_explain_forecast_returns_same_season_reasoning(self) -> None:
+        history = self.make_history([
+            DividendEvent(1, "2024-03-14", "2024-03-29", 1.00, "USD", False),
+            DividendEvent(2, "2024-06-13", "2024-06-28", 1.10, "USD", False),
+            DividendEvent(3, "2024-09-15", "2024-09-30", 1.20, "USD", False),
+            DividendEvent(4, "2024-12-16", "2024-12-31", 1.30, "USD", False),
+            DividendEvent(5, "2025-03-16", "2025-03-31", 1.40, "USD", False),
+        ])
+
+        explanation = self.estimator.explain_forecast(history, steps_ahead=1)
+
+        self.assertIsNotNone(explanation)
+        assert explanation is not None
+        self.assertEqual(explanation.basis, "quarterly_same_season")
+        self.assertEqual(explanation.predicted_pay_date, "2025-06-30")
+        self.assertEqual(explanation.predicted_amount, 1.10)
+        self.assertEqual([event.pay_date for event in explanation.seasonal_dividends], ["2024-06-28"])
+        self.assertEqual(explanation.chosen_reference_dividend.pay_date if explanation.chosen_reference_dividend else None, "2024-06-28")
+
+    def test_explain_forecast_returns_trend_breakdown(self) -> None:
+        history = self.make_history([
+            DividendEvent(1, "2023-03-14", "2023-03-31", 0.90, "USD", False),
+            DividendEvent(2, "2023-06-13", "2023-06-30", 1.00, "USD", False),
+            DividendEvent(3, "2023-09-13", "2023-09-30", 0.95, "USD", False),
+            DividendEvent(4, "2023-12-14", "2023-12-31", 0.98, "USD", False),
+            DividendEvent(5, "2024-03-14", "2024-03-31", 1.05, "USD", False),
+            DividendEvent(6, "2024-06-13", "2024-06-30", 1.10, "USD", False),
+            DividendEvent(7, "2024-09-13", "2024-09-30", 1.08, "USD", False),
+            DividendEvent(8, "2024-12-14", "2024-12-31", 1.12, "USD", False),
+            DividendEvent(9, "2025-03-14", "2025-03-31", 1.20, "USD", False),
+            DividendEvent(10, "2025-06-13", "2025-06-30", 1.25, "USD", False),
+            DividendEvent(11, "2025-09-13", "2025-09-30", 1.22, "USD", False),
+            DividendEvent(12, "2025-12-14", "2025-12-31", 1.26, "USD", False),
+            DividendEvent(13, "2026-03-14", "2026-03-31", 1.35, "USD", False),
+        ])
+
+        explanation = self.estimator.explain_forecast(history, steps_ahead=1)
+
+        self.assertIsNotNone(explanation)
+        assert explanation is not None
+        self.assertEqual(explanation.basis, "quarterly_trend")
+        self.assertIsNotNone(explanation.trend_analysis)
+        assert explanation.trend_analysis is not None
+        self.assertEqual(len(explanation.trend_analysis.points), 3)
+        self.assertAlmostEqual(explanation.trend_analysis.blended_prediction, 1.3360810810810813)
+
     def test_seasonal_slots_tolerate_small_month_boundary_shifts(self) -> None:
         dividends = [
             DividendEvent(1, "2023-09-18", "2023-10-02", 1.00, "USD", False),

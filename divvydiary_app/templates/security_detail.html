@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-shell">
+    <section class="hero">
+        <div class="hero-copy">
+            <span class="page-kicker">Security Deep Dive</span>
+            <div>
+                <h1>Security Details</h1>
+                <p>Inspect one holding in detail with its forecast profile, recent dividend history, and explanation links for each forecasted event.</p>
+            </div>
+            {% if security %}
+                <div class="hero-meta">
+                    <span class="meta-pill">{{ security.code }}</span>
+                    <span class="meta-pill mono-meta">{{ security.isin }}</span>
+                </div>
+            {% endif %}
+        </div>
+        <div class="hero-actions">
+            <a href="/" role="button" class="secondary">Back to Dashboard</a>
+        </div>
+    </section>
+
+    {% if error_message %}
+        <article class="section-card">
+            <div class="section-body">
+                <p>{{ error_message }}</p>
+            </div>
+        </article>
+    {% elif security %}
+        <article class="section-card">
+            <header>
+                <div>
+                    <span class="eyebrow">Overview</span>
+                    <h2>{{ security.name }}</h2>
+                    <p>{{ security.isin }} · {{ security.code }}</p>
+                </div>
+            </header>
+            <div class="section-body">
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <strong>Next dividend</strong><br>
+                        {{ security.next_payment_date or "n/a" }}<br>
+                        {{ format_currency(security.next_payment_amount, security.currency, 4) }}
+                    </div>
+                    <div class="detail-card">
+                        <strong>Confidence / Basis</strong><br>
+                        {{ security.confidence }}<br>
+                        {{ security.basis }}
+                    </div>
+                    <div class="detail-card">
+                        <strong>Ex date</strong><br>
+                        {{ security.next_ex_date or "n/a" }}
+                    </div>
+                    <div class="detail-card">
+                        <strong>Estimated total</strong><br>
+                        {{ format_currency(security.estimated_total_amount, security.currency) }}
+                    </div>
+                </div>
+            </div>
+        </article>
+
+        <section class="section-shell">
+            <article class="section-card">
+                <header>
+                    <div>
+                        <span class="eyebrow">Forecast</span>
+                        <h2>Forecasted Dividends</h2>
+                        <p>Open any row’s explanation to see the reasoning behind the forecast.</p>
+                    </div>
+                    <div class="header-actions">
+                        <span class="table-count">{{ security.forecast_rows|length }} rows</span>
+                    </div>
+                </header>
+                {% if security.forecast_rows %}
+                    <div class="table-scroll">
+                        <table class="sortable-table">
+                            <thead>
+                                <tr>
+                                    <th data-sortable data-sort-type="date">Ex Date</th>
+                                    <th data-sortable data-sort-type="date">Pay Date</th>
+                                    <th data-sortable data-sort-type="number">Per Share</th>
+                                    <th data-sortable data-sort-type="number">Total</th>
+                                    <th data-sortable data-sort-type="text">Currency</th>
+                                    <th>Explanation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in security.forecast_rows %}
+                                    <tr>
+                                        <td data-sort-value="{{ row.ex_date }}">{{ row.ex_date }}</td>
+                                        <td data-sort-value="{{ row.pay_date }}">{{ row.pay_date }}</td>
+                                        <td data-sort-value="{{ row.amount_per_share if row.amount_per_share is not none else '' }}">{{ format_amount(row.amount_per_share, 4) }}</td>
+                                        <td data-sort-value="{{ row.total_amount if row.total_amount is not none else '' }}">{{ format_currency(row.total_amount, row.currency) }}</td>
+                                        <td data-sort-value="{{ row.currency or '' }}">{{ row.currency or "-" }}</td>
+                                        <td><a href="/security/{{ security.isin }}/forecast/{{ row.index }}" role="button" class="secondary outline">Explain</a></td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="section-body">
+                        <p class="empty-state">No forecast events available.</p>
+                    </div>
+                {% endif %}
+            </article>
+
+            <article class="section-card">
+                <header>
+                    <div>
+                        <span class="eyebrow">History</span>
+                        <h2>Historical Dividends</h2>
+                        <p>The recent confirmed dividend timeline for this security.</p>
+                    </div>
+                    <div class="header-actions">
+                        <span class="table-count">{{ security.recent_history_rows|length }} rows</span>
+                    </div>
+                </header>
+                {% if security.recent_history_rows %}
+                    <div class="table-scroll">
+                        <table class="sortable-table">
+                            <thead>
+                                <tr>
+                                    <th data-sortable data-sort-type="date">Pay Date</th>
+                                    <th data-sortable data-sort-type="date">Ex Date</th>
+                                    <th data-sortable data-sort-type="number">Amount</th>
+                                    <th data-sortable data-sort-type="text">Currency</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in security.recent_history_rows %}
+                                    <tr>
+                                        <td data-sort-value="{{ row.pay_date }}">{{ row.pay_date }}</td>
+                                        <td data-sort-value="{{ row.ex_date }}">{{ row.ex_date }}</td>
+                                        <td data-sort-value="{{ row.amount if row.amount is not none else '' }}">{{ format_amount(row.amount, 4) }}</td>
+                                        <td data-sort-value="{{ row.currency or '' }}">{{ row.currency or "-" }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="section-body">
+                        <p class="empty-state">No historical dividend events found.</p>
+                    </div>
+                {% endif %}
+            </article>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

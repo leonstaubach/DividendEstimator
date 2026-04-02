@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-shell">
+    <section class="hero">
+        <div class="hero-copy">
+            <span class="page-kicker">Cash Flow Timeline</span>
+            <div class="section-copy">
+                <h1>Monthly View</h1>
+                <p>Review the previous month first, then the current month and up to the next 12 months of projected dividend payments across the portfolio.</p>
+            </div>
+        </div>
+        <div class="hero-actions hero-actions-right hero-actions-stack">
+            {% if monthly_view %}
+                <div class="date-toggle compact" role="group" aria-label="Compact date display mode" data-month-date-mode="pay">
+                    <button type="button" class="date-toggle-button" data-date-toggle-mode="pay">Pay Date</button>
+                    <button type="button" class="date-toggle-button" data-date-toggle-mode="ex">Ex-Date</button>
+                </div>
+            {% endif %}
+            <a href="/" role="button" class="secondary">Back to Dashboard</a>
+        </div>
+    </section>
+
+    {% if error_message %}
+        <article class="section-card">
+            <div class="section-body">
+                <p>{{ error_message }}</p>
+            </div>
+        </article>
+    {% elif monthly_view %}
+        <section class="month-grid">
+            {% for month in monthly_view.month_sections %}
+                <details class="month-accordion" {% if loop.first or month.is_current_month %}open{% endif %}>
+                    <summary class="month-summary">
+                        <div class="month-summary-title">
+                            <h2>{{ month.caption }}</h2>
+                            <span class="month-summary-subtitle">
+                                {% if month.is_previous_month %}
+                                    Previous month
+                                {% elif month.is_current_month %}
+                                    Current month
+                                {% else %}
+                                    Forecast horizon
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div class="header-actions">
+                            <span class="month-summary-total numeric">{{ format_currency(month.total_amount, month.currency) }}</span>
+                            <span class="month-summary-chevron">⌄</span>
+                        </div>
+                    </summary>
+                    <div class="month-content">
+                        {% if month.rows %}
+                            {% if month.confirmed_rows %}
+                                <div class="month-cards">
+                                    {% for row in month.confirmed_rows %}
+                                        <details class="dividend-card payment-card">
+                                            <summary class="payment-card-summary">
+                                                <div class="payment-card-summary-top">
+                                                    <div class="dividend-card-title">
+                                                        <h3>{{ row.security_name }} ({{ row.security_code }})</h3>
+                                                        <p class="numeric">{{ format_currency(row.total_amount, row.currency) }}</p>
+                                                    </div>
+                                                    <span class="payment-card-chevron">⌄</span>
+                                                </div>
+                                                <div class="dividend-card-compact-date numeric" data-month-date-mode="pay">
+                                                    <span class="compact-pay-date">{{ format_display_date(row.pay_date, include_weekday=False) }}</span>
+                                                    <span class="compact-ex-date">{{ format_display_date(row.ex_date, include_weekday=False) }}</span>
+                                                </div>
+                                            </summary>
+                                            <div class="payment-card-expanded">
+                                                <div>
+                                                    <div class="dividend-card-support">
+                                                        <span class="numeric">{{ format_currency(row.amount_per_share, row.currency, 4) }}</span> per share · <span class="numeric">{{ format_quantity(row.quantity) }}</span> shares
+                                                    </div>
+                                                </div>
+                                                <div class="dividend-card-meta">
+                                                    <div>
+                                                        <span class="dividend-card-meta-label">Pay Date</span>
+                                                        <span class="dividend-card-meta-value numeric">{{ format_display_date(row.pay_date) }}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="dividend-card-meta-label">Ex-Date</span>
+                                                        <span class="dividend-card-meta-value numeric">{{ format_display_date(row.ex_date, include_weekday=False) }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+
+                            {% if month.estimated_rows %}
+                                <div class="forecast-divider">
+                                    <span>✦ Leon's Forecast</span>
+                                </div>
+                                <div class="month-cards">
+                                    {% for row in month.estimated_rows %}
+                                        <details class="dividend-card payment-card is-forecast">
+                                            {% if row.forecast_index is not none %}
+                                                <a
+                                                    href="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}"
+                                                    class="forecast-card-badge forecast-card-badge-overlay"
+                                                    data-forecast-modal-url="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}/modal"
+                                                >✦ <span class="forecast-card-badge-label">Explain</span></a>
+                                            {% endif %}
+                                            <summary class="payment-card-summary">
+                                                <div class="payment-card-summary-top">
+                                                    <span class="forecast-card-badge forecast-card-badge-placeholder" aria-hidden="true">✦ <span class="forecast-card-badge-label">Explain</span></span>
+                                                    <div class="dividend-card-title">
+                                                        <h3>{{ row.security_name }} ({{ row.security_code }})</h3>
+                                                        <p class="numeric">{{ format_currency(row.total_amount, row.currency) }}</p>
+                                                    </div>
+                                                    <span class="payment-card-chevron">⌄</span>
+                                                </div>
+                                                <div class="dividend-card-compact-date numeric" data-month-date-mode="pay">
+                                                    <span class="compact-pay-date">{{ format_display_date(row.pay_date, include_weekday=False) }}</span>
+                                                    <span class="compact-ex-date">{{ format_display_date(row.ex_date, include_weekday=False) }}</span>
+                                                </div>
+                                            </summary>
+                                            <div class="payment-card-expanded">
+                                                <div>
+                                                    <div class="dividend-card-support">
+                                                        <span class="numeric">{{ format_currency(row.amount_per_share, row.currency, 4) }}</span> per share · <span class="numeric">{{ format_quantity(row.quantity) }}</span> shares
+                                                    </div>
+                                                </div>
+                                                <div class="dividend-card-meta">
+                                                    <div>
+                                                        <span class="dividend-card-meta-label">Pay Date</span>
+                                                        <span class="dividend-card-meta-value numeric">{{ format_display_date(row.pay_date) }}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="dividend-card-meta-label">Ex-Date</span>
+                                                        <span class="dividend-card-meta-value numeric">{{ format_display_date(row.ex_date, include_weekday=False) }}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </details>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="month-empty">
+                                <p class="empty-state">No dividend payments projected for this month.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </details>
+            {% endfor %}
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

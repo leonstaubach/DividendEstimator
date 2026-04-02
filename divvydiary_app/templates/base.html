@@ -1,0 +1,1573 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or "Dividend Viewer" }}</title>
+    <script>
+        (function () {
+            const storedTheme = localStorage.getItem("dividend-viewer-theme") || "system";
+            const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const effectiveTheme = storedTheme === "system" ? (systemDark ? "dark" : "light") : storedTheme;
+            document.documentElement.setAttribute("data-theme", effectiveTheme);
+            document.documentElement.dataset.themePreference = storedTheme;
+            document.documentElement.style.colorScheme = effectiveTheme;
+        }());
+    </script>
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+    >
+    <style>
+        :root {
+            --pico-font-family: "Inter", "Segoe UI", sans-serif;
+            --pico-border-radius: 1.15rem;
+            --pico-card-border-width: 1px;
+            --pico-line-height: 1.55;
+            --pico-spacing: 1rem;
+            --surface-background:
+                radial-gradient(circle at 0% 0%, rgba(14, 165, 233, 0.12), transparent 24%),
+                radial-gradient(circle at 100% 0%, rgba(45, 212, 191, 0.14), transparent 26%),
+                linear-gradient(180deg, #f8fbff 0%, #eef4ff 46%, #f5f8fc 100%);
+            --app-surface: rgba(255, 255, 255, 0.76);
+            --app-surface-strong: rgba(255, 255, 255, 0.92);
+            --app-panel: rgba(255, 255, 255, 0.62);
+            --app-panel-strong: rgba(255, 255, 255, 0.88);
+            --app-border: rgba(148, 163, 184, 0.22);
+            --app-border-strong: rgba(148, 163, 184, 0.3);
+            --app-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
+            --app-shadow-soft: 0 12px 28px rgba(15, 23, 42, 0.05);
+            --app-tab-background: rgba(255, 255, 255, 0.46);
+            --app-selected-row: color-mix(in srgb, var(--pico-primary) 12%, white);
+            --app-heading: #0f172a;
+            --app-subtle: #475569;
+            --app-accent-soft: rgba(14, 165, 233, 0.08);
+            --chart-border: #ffffff;
+        }
+
+        :root[data-theme="dark"] {
+            --pico-background-color: #0b1120;
+            --pico-card-background-color: #111827;
+            --pico-card-sectioning-background-color: #0f172a;
+            --pico-color: #e5eefb;
+            --pico-muted-color: #94a3b8;
+            --pico-muted-border-color: rgba(148, 163, 184, 0.22);
+            --pico-primary: #5eead4;
+            --pico-primary-hover: #99f6e4;
+            --pico-primary-focus: rgba(94, 234, 212, 0.28);
+            --pico-primary-inverse: #042f2e;
+            --pico-form-element-background-color: rgba(15, 23, 42, 0.88);
+            --pico-form-element-border-color: rgba(148, 163, 184, 0.24);
+            --pico-dropdown-background-color: #0f172a;
+            --surface-background:
+                radial-gradient(circle at 0% 0%, rgba(45, 212, 191, 0.16), transparent 24%),
+                radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.16), transparent 22%),
+                linear-gradient(180deg, #020617 0%, #0b1120 52%, #111827 100%);
+            --app-surface: rgba(15, 23, 42, 0.76);
+            --app-surface-strong: rgba(15, 23, 42, 0.92);
+            --app-panel: rgba(15, 23, 42, 0.62);
+            --app-panel-strong: rgba(15, 23, 42, 0.9);
+            --app-border: rgba(148, 163, 184, 0.18);
+            --app-border-strong: rgba(148, 163, 184, 0.28);
+            --app-shadow: 0 24px 48px rgba(2, 6, 23, 0.45);
+            --app-shadow-soft: 0 14px 30px rgba(2, 6, 23, 0.34);
+            --app-tab-background: rgba(15, 23, 42, 0.45);
+            --app-selected-row: color-mix(in srgb, var(--pico-primary) 14%, #0f172a);
+            --app-heading: #f8fafc;
+            --app-subtle: #cbd5e1;
+            --app-accent-soft: rgba(94, 234, 212, 0.08);
+            --chart-border: rgba(15, 23, 42, 0.85);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--surface-background);
+            color: var(--pico-color);
+        }
+
+        main.container {
+            max-width: 1380px;
+            padding-top: 1.5rem;
+            padding-bottom: 4rem;
+        }
+
+        h1, h2, h3, h4 {
+            color: var(--app-heading);
+            letter-spacing: -0.03em;
+        }
+
+        h1 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            margin-bottom: 0.35rem;
+        }
+
+        h2 {
+            font-size: clamp(1.35rem, 2vw, 1.9rem);
+        }
+
+        p {
+            color: var(--app-subtle);
+        }
+
+        strong {
+            color: var(--app-heading);
+        }
+
+        button,
+        [role="button"] {
+            border-radius: 999px;
+            font-weight: 700;
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .numeric {
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1, "lnum" 1;
+            letter-spacing: -0.02em;
+        }
+
+        .soft-text {
+            color: var(--pico-muted-color);
+        }
+
+        .section-copy {
+            max-width: 40rem;
+        }
+
+        .section-copy p,
+        .section-copy .section-note {
+            max-width: 38rem;
+        }
+
+        .page-stack {
+            display: grid;
+            gap: 1.4rem;
+        }
+
+        .page-shell {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .page-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.4rem 0.75rem;
+            border: 1px solid var(--app-border);
+            border-radius: 999px;
+            background: var(--app-panel);
+            color: var(--pico-primary);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .hero {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 1.25rem;
+            padding: 1.4rem 1.5rem;
+            margin-bottom: 0;
+            border: 1px solid var(--app-border);
+            border-radius: calc(var(--pico-border-radius) * 1.2);
+            background: linear-gradient(180deg, var(--app-panel-strong) 0%, var(--app-panel) 100%);
+            box-shadow: var(--app-shadow);
+            backdrop-filter: blur(18px);
+        }
+
+        .hero h1 {
+            margin-bottom: 0.4rem;
+        }
+
+        .hero p {
+            margin-bottom: 0;
+            max-width: 46rem;
+            font-size: 1rem;
+            line-height: 1.65;
+            color: var(--pico-muted-color);
+        }
+
+        .hero-copy {
+            display: grid;
+            gap: 0.85rem;
+        }
+
+        .hero-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-actions-right {
+            margin-left: auto;
+            align-items: flex-end;
+            justify-content: flex-start;
+        }
+
+        .hero-actions-stack {
+            flex-direction: column;
+            align-items: flex-end;
+            flex-wrap: nowrap;
+        }
+
+        .hero-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+        }
+
+        .dashboard-hero-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+            gap: 1.4rem;
+            align-items: stretch;
+        }
+
+        .metric-value {
+            font-size: 1.85rem;
+            font-weight: 700;
+            color: var(--app-heading);
+        }
+
+        .metric-label {
+            display: block;
+            color: var(--pico-muted-color);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-bottom: 0.35rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+            gap: 1.4rem;
+            margin-top: 0;
+        }
+
+        .stack {
+            display: grid;
+            gap: 1.4rem;
+        }
+
+        .month-grid {
+            display: grid;
+            gap: 1.2rem;
+            max-width: 70%;
+            margin: 0 auto;
+        }
+
+        .section-shell {
+            display: grid;
+            gap: 1.4rem;
+        }
+
+        .section-card {
+            overflow: hidden;
+            border: 1px solid var(--app-border);
+            border-radius: calc(var(--pico-border-radius) * 1.05);
+            background: linear-gradient(180deg, var(--app-surface-strong) 0%, var(--app-surface) 100%);
+            box-shadow: var(--app-shadow);
+            backdrop-filter: blur(18px);
+        }
+
+        .section-card > header,
+        .section-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.25rem 1.35rem 1rem;
+        }
+
+        .section-header p,
+        .section-card > header p {
+            margin-bottom: 0;
+        }
+
+        .section-body {
+            padding: 0 1.35rem 1.3rem;
+        }
+
+        .eyebrow {
+            display: inline-block;
+            margin-bottom: 0.35rem;
+            color: var(--pico-primary);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .section-note {
+            color: var(--pico-muted-color);
+            font-size: 0.92rem;
+        }
+
+        .meta-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.42rem 0.78rem;
+            border: 1px solid var(--app-border);
+            border-radius: 999px;
+            background: var(--app-panel);
+            color: var(--app-subtle);
+            font-size: 0.82rem;
+            font-weight: 600;
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .hero-metric {
+            min-width: 220px;
+            padding: 1rem 1.15rem;
+            border: 1px solid var(--app-border);
+            border-radius: calc(var(--pico-border-radius) * 0.95);
+            background: linear-gradient(180deg, var(--app-surface-strong) 0%, var(--app-surface) 100%);
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .selected {
+            background: var(--app-selected-row);
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1rem;
+            margin-bottom: 0;
+        }
+
+        .detail-card {
+            border: 1px solid var(--app-border);
+            border-radius: var(--pico-border-radius);
+            padding: 1rem 1.05rem;
+            background: linear-gradient(180deg, var(--app-surface-strong) 0%, var(--app-surface) 100%);
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .detail-card strong {
+            display: inline-block;
+            margin-bottom: 0.5rem;
+            color: var(--app-heading);
+            font-size: 0.88rem;
+            letter-spacing: 0.02em;
+        }
+
+        .empty-state {
+            color: var(--pico-muted-color);
+            margin: 0;
+            padding: 1rem 0;
+        }
+
+        .chart-panel {
+            display: grid;
+            gap: 1rem;
+            align-content: start;
+        }
+
+        .chart-wrap {
+            position: relative;
+            min-height: 360px;
+        }
+
+        .chart-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            margin-top: 0.5rem;
+        }
+
+        .metric-chip {
+            display: inline-grid;
+            gap: 0.12rem;
+            min-width: 10.5rem;
+            padding: 0.85rem 0.95rem;
+            border: 1px solid var(--app-border);
+            border-radius: 1rem;
+            background: linear-gradient(180deg, color-mix(in srgb, var(--app-panel-strong) 90%, transparent) 0%, var(--app-panel) 100%);
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .metric-chip-label {
+            color: var(--pico-muted-color);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .metric-chip-value {
+            color: var(--app-heading);
+            font-size: 1.15rem;
+            font-weight: 800;
+            line-height: 1.15;
+        }
+
+        .data-points {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+        }
+
+        .month-toolbar {
+            display: flex;
+            justify-content: center;
+            margin: -0.15rem 0 0.2rem;
+        }
+
+        .date-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.3rem;
+            border: 1px solid var(--app-border);
+            border-radius: 999px;
+            background: var(--app-panel);
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .date-toggle.compact {
+            gap: 0.25rem;
+            padding: 0.2rem;
+        }
+
+        .date-toggle-button {
+            border: 0;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--app-subtle);
+            padding: 0.55rem 0.95rem;
+            font-size: 0.86rem;
+            font-weight: 700;
+            box-shadow: none;
+        }
+
+        .date-toggle.compact .date-toggle-button {
+            padding: 0.42rem 0.72rem;
+            font-size: 0.75rem;
+        }
+
+        .date-toggle-button.is-active {
+            background: linear-gradient(135deg, var(--pico-primary) 0%, #38bdf8 100%);
+            color: var(--pico-primary-inverse);
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .month-accordion {
+            width: 100%;
+            overflow: hidden;
+            border: 1px solid var(--app-border);
+            border-radius: calc(var(--pico-border-radius) * 1.05);
+            background: linear-gradient(180deg, var(--app-surface-strong) 0%, var(--app-panel) 100%);
+            box-shadow: var(--app-shadow);
+        }
+
+        .month-accordion summary {
+            list-style: none;
+            cursor: pointer;
+        }
+
+        .month-accordion summary::marker {
+            content: "";
+        }
+
+        .month-accordion summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .month-accordion summary::after {
+            display: none !important;
+            content: none !important;
+        }
+
+        .month-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1.05rem 1.2rem;
+            background: linear-gradient(180deg, color-mix(in srgb, var(--app-panel-strong) 86%, transparent) 0%, var(--app-panel) 100%);
+        }
+
+        .month-summary-title {
+            display: grid;
+            gap: 0.2rem;
+        }
+
+        .month-summary-title h2 {
+            margin: 0;
+            font-size: 1.02rem;
+        }
+
+        .month-summary-subtitle {
+            color: var(--pico-muted-color);
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .month-summary-total {
+            text-align: right;
+            color: var(--app-heading);
+            font-size: 1.02rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1, "lnum" 1;
+            letter-spacing: -0.02em;
+        }
+
+        .month-summary-chevron {
+            color: var(--pico-muted-color);
+            font-size: 1rem;
+            transition: transform 150ms ease;
+        }
+
+        .month-accordion[open] .month-summary-chevron {
+            transform: rotate(180deg);
+        }
+
+        .month-content {
+            display: grid;
+            gap: 1.05rem;
+            padding: 0 1rem 1rem;
+            background: color-mix(in srgb, var(--app-panel) 92%, transparent);
+        }
+
+        .month-cards {
+            display: grid;
+            gap: 0.95rem;
+        }
+
+        .forecast-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            color: #fb923c;
+            margin: 0.15rem 0 0;
+        }
+
+        .forecast-divider::before,
+        .forecast-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: color-mix(in srgb, #fb923c 58%, transparent);
+        }
+
+        .forecast-divider span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.3rem 0.8rem;
+            border: 1px solid color-mix(in srgb, #fb923c 50%, transparent);
+            border-radius: 999px;
+            background: color-mix(in srgb, #fb923c 14%, transparent);
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .dividend-card {
+            display: grid;
+            gap: 0.95rem;
+            padding: 1.05rem 1.1rem;
+            border: 1px solid var(--app-border);
+            border-radius: calc(var(--pico-border-radius) * 0.95);
+            background: linear-gradient(180deg, var(--app-surface-strong) 0%, var(--app-surface) 100%);
+            box-shadow: var(--app-shadow-soft);
+            transition: transform 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+        }
+
+        .dividend-card:hover {
+            transform: translateY(-2px);
+            border-color: color-mix(in srgb, var(--pico-primary) 36%, var(--app-border));
+            box-shadow: var(--app-shadow);
+        }
+
+        .dividend-card.is-forecast {
+            border-left: 3px solid #fb923c;
+        }
+
+        .dividend-card-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .dividend-card-title {
+            display: grid;
+            gap: 0.18rem;
+            text-align: center;
+            justify-items: center;
+            flex: 1;
+        }
+
+        .dividend-card-title h3 {
+            margin: 0;
+            max-width: 24rem;
+            font-size: 0.98rem;
+            font-weight: 700;
+            line-height: 1.42;
+            text-wrap: balance;
+        }
+
+        .dividend-card-title p {
+            margin: 0;
+            color: var(--pico-primary);
+            font-size: 1.18rem;
+            font-weight: 800;
+            line-height: 1.1;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1, "lnum" 1;
+        }
+
+        .forecast-card-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.35rem;
+            height: 1.35rem;
+            padding: 0 0.45rem;
+            border-radius: 0.45rem;
+            background: color-mix(in srgb, #fb923c 16%, transparent);
+            color: #fb923c;
+            font-size: 0.78rem;
+            font-weight: 700;
+            flex: 0 0 auto;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+
+        .forecast-card-badge-label {
+            text-underline-offset: 0.14em;
+            text-decoration-thickness: 1.5px;
+        }
+
+        a.forecast-card-badge .forecast-card-badge-label {
+            text-decoration: underline;
+        }
+
+        .forecast-card-badge:hover {
+            background: color-mix(in srgb, #fb923c 22%, transparent);
+            color: #fdba74;
+        }
+
+        .dividend-card-amount {
+            color: var(--app-heading);
+            font-size: 1.55rem;
+            font-weight: 800;
+            line-height: 1;
+            text-align: center;
+        }
+
+        .dividend-card-support {
+            color: var(--pico-muted-color);
+            font-size: 0.88rem;
+            font-style: italic;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .dividend-card-compact-date {
+            color: var(--app-heading);
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-align: center;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1, "lnum" 1;
+        }
+
+        .compact-ex-date {
+            display: none;
+        }
+
+        [data-month-date-mode="ex"] .compact-pay-date {
+            display: none;
+        }
+
+        [data-month-date-mode="ex"] .compact-ex-date {
+            display: block;
+        }
+
+        .dividend-card-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.75rem;
+            padding-top: 0.9rem;
+            border-top: 1px solid var(--app-border);
+        }
+
+        .dividend-card-meta-label {
+            display: block;
+            margin-bottom: 0.2rem;
+            color: var(--pico-muted-color);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .dividend-card-meta-value {
+            color: var(--app-heading);
+            font-size: 0.95rem;
+            font-weight: 700;
+        }
+
+        .payment-card {
+            overflow: hidden;
+            position: relative;
+        }
+
+        .payment-card summary {
+            display: block;
+            width: 100%;
+            list-style: none;
+            cursor: pointer;
+        }
+
+        .payment-card summary::marker {
+            content: "";
+        }
+
+        .payment-card summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .payment-card summary::after {
+            display: none !important;
+            content: none !important;
+        }
+
+        .payment-card-header {
+            display: grid;
+            gap: 0.85rem;
+        }
+
+        .payment-card-summary {
+            display: grid;
+            gap: 0.85rem;
+        }
+
+        .payment-card-summary-top {
+            display: grid;
+            grid-template-columns: 1.35rem minmax(0, 1fr) 1.35rem;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .payment-card-summary-top .dividend-card-title {
+            grid-column: 2;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .payment-card-summary-top .forecast-card-badge {
+            grid-column: 1;
+            justify-self: start;
+        }
+
+        .forecast-card-badge-overlay {
+            position: absolute;
+            top: 1.05rem;
+            left: 1.1rem;
+            z-index: 6;
+            display: inline-flex;
+            visibility: visible;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .forecast-card-badge-placeholder {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .payment-card-chevron {
+            grid-column: 3;
+            justify-self: end;
+            color: var(--pico-muted-color);
+            font-size: 0.95rem;
+            transition: transform 150ms ease;
+            flex: 0 0 auto;
+            align-self: flex-end;
+        }
+
+        .payment-card[open] .payment-card-chevron {
+            transform: rotate(180deg);
+        }
+
+        .payment-card-expanded {
+            display: none;
+            gap: 0.9rem;
+        }
+
+        .payment-card[open] .payment-card-expanded {
+            display: grid;
+        }
+
+        .payment-card[open] .payment-card-summary {
+            gap: 0.9rem;
+        }
+
+        .payment-card-link {
+            display: inline-flex;
+            justify-content: center;
+            text-decoration: none;
+        }
+
+        .month-empty {
+            padding: 0.2rem 0.15rem 0.35rem;
+        }
+
+        .table-scroll {
+            max-height: 33rem;
+            overflow: auto;
+            border-top: 1px solid var(--app-border);
+        }
+
+        .table-scroll.table-scroll-compact {
+            max-height: 17rem;
+        }
+
+        .table-scroll table {
+            margin-bottom: 0;
+        }
+
+        table {
+            font-size: 0.95rem;
+            font-variant-numeric: tabular-nums;
+            font-feature-settings: "tnum" 1, "lnum" 1;
+        }
+
+        thead th {
+            color: var(--pico-muted-color);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        tbody tr:nth-child(odd) {
+            background: color-mix(in srgb, var(--app-accent-soft) 38%, transparent);
+        }
+
+        tbody tr:hover {
+            background: color-mix(in srgb, var(--pico-primary) 10%, transparent);
+        }
+
+        tbody td {
+            vertical-align: middle;
+            padding-top: 0.92rem;
+            padding-bottom: 0.92rem;
+        }
+
+        .table-scroll thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: var(--app-surface-strong);
+        }
+
+        tfoot td {
+            position: sticky;
+            bottom: 0;
+            background: var(--app-surface-strong);
+            border-top: 1px solid var(--app-border-strong);
+        }
+
+        td a {
+            font-weight: 600;
+            text-decoration: none;
+            color: var(--app-heading);
+        }
+
+        td a:hover {
+            color: var(--pico-primary);
+        }
+
+        th[data-sortable] {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .sort-button {
+            all: unset;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font: inherit;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        .sort-indicator {
+            color: var(--pico-muted-color);
+            font-size: 0.8em;
+        }
+
+        .topbar {
+            position: sticky;
+            top: 0.85rem;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 0.85rem 1rem;
+            margin-bottom: 1.25rem;
+            border: 1px solid var(--app-border);
+            border-radius: calc(var(--pico-border-radius) * 1.15);
+            background: var(--app-tab-background);
+            box-shadow: var(--app-shadow);
+            backdrop-filter: blur(16px);
+        }
+
+        .topbar nav.page-tabs {
+            margin-bottom: 0;
+            flex: 1;
+        }
+
+        nav.page-tabs ul {
+            gap: 0.55rem;
+            align-items: center;
+        }
+
+        .brand-mark {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: var(--app-heading);
+            font-weight: 800;
+            letter-spacing: -0.03em;
+        }
+
+        .brand-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.7rem;
+            background: linear-gradient(135deg, var(--pico-primary) 0%, #38bdf8 100%);
+            color: var(--pico-primary-inverse);
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .theme-toggle {
+            position: relative;
+            display: inline-block;
+        }
+
+        .settings-menu {
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+        }
+
+        .settings-menu[open] .settings-trigger {
+            background: color-mix(in srgb, var(--pico-primary) 14%, transparent);
+            color: var(--pico-color);
+        }
+
+        .settings-trigger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.75rem;
+            height: 2.75rem;
+            border: 1px solid var(--app-border);
+            border-radius: 999px;
+            background: var(--app-surface);
+            box-shadow: var(--app-shadow);
+            color: var(--pico-muted-color);
+            cursor: pointer;
+            list-style: none;
+        }
+
+        .settings-trigger::after {
+            display: none !important;
+        }
+
+        .settings-trigger::marker {
+            content: "";
+        }
+
+        .settings-trigger::-webkit-details-marker {
+            display: none;
+        }
+
+        .app-modal {
+            width: min(860px, calc(100vw - 2rem));
+            max-width: 100%;
+            padding: 0;
+            border: 1px solid var(--app-border-strong);
+            border-radius: calc(var(--pico-border-radius) * 1.1);
+            background: linear-gradient(180deg, color-mix(in srgb, var(--app-surface-strong) 92%, rgba(255, 255, 255, 0.08)) 0%, color-mix(in srgb, var(--app-surface) 90%, rgba(255, 255, 255, 0.05)) 100%);
+            box-shadow: 0 30px 80px rgba(2, 6, 23, 0.35);
+            backdrop-filter: blur(20px) saturate(1.1);
+            transform: translateY(14px) scale(0.985);
+            opacity: 0;
+            transition: opacity 150ms ease, transform 180ms ease;
+        }
+
+        .app-modal::backdrop {
+            background: rgba(2, 6, 23, 0.42);
+            backdrop-filter: blur(10px) saturate(0.85);
+        }
+
+        .app-modal[open] {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        .app-modal-inner {
+            display: grid;
+            gap: 1.1rem;
+            padding: 1.2rem 1.25rem 1.25rem;
+        }
+
+        .app-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding-bottom: 0.9rem;
+            border-bottom: 1px solid var(--app-border);
+        }
+
+        .app-modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+        .app-modal-close {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.4rem;
+            height: 2.4rem;
+            padding: 0;
+            border: 1px solid var(--app-border);
+            border-radius: 999px;
+            background: var(--app-panel);
+            color: var(--app-heading);
+            box-shadow: none;
+        }
+
+        .modal-section {
+            display: grid;
+            gap: 0.9rem;
+        }
+
+        .modal-section h3 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .modal-content-shell {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .modal-detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.9rem;
+        }
+
+        .modal-loading,
+        .modal-error {
+            color: var(--pico-muted-color);
+            padding: 0.35rem 0 0.2rem;
+        }
+
+        .settings-panel {
+            position: absolute;
+            right: 0;
+            top: calc(100% + 0.5rem);
+            min-width: 11rem;
+            padding: 0.55rem;
+            border: 1px solid var(--app-border);
+            border-radius: 1rem;
+            background: var(--app-surface-strong);
+            box-shadow: var(--app-shadow);
+            backdrop-filter: blur(16px);
+            z-index: 10;
+        }
+
+        .settings-label {
+            display: block;
+            margin: 0 0 0.45rem;
+            padding: 0 0.35rem;
+            color: var(--pico-muted-color);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .theme-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.35rem;
+            height: 2.35rem;
+            border: 1px solid transparent;
+            border-radius: 999px;
+            background: transparent;
+            color: var(--pico-muted-color);
+            padding: 0;
+            font-size: 1.05rem;
+            font-weight: 600;
+            line-height: 1;
+        }
+
+        .theme-button:hover,
+        .theme-button:focus-visible {
+            background: color-mix(in srgb, var(--pico-primary) 12%, transparent);
+            color: var(--pico-color);
+        }
+
+        .theme-button.is-active {
+            background: var(--pico-primary);
+            color: var(--pico-primary-inverse);
+        }
+
+        .theme-options {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        article,
+        .table-scroll,
+        .chart-panel {
+            border-radius: var(--pico-border-radius);
+        }
+
+        article {
+            margin: 0;
+        }
+
+        nav.page-tabs a {
+            padding: 0.55rem 0.9rem;
+            border-radius: 999px;
+            color: var(--app-subtle);
+            font-weight: 600;
+            text-decoration: none;
+            transition: background-color 120ms ease, color 120ms ease;
+        }
+
+        nav.page-tabs a:hover {
+            background: color-mix(in srgb, var(--pico-primary) 8%, transparent);
+            color: var(--app-heading);
+        }
+
+        nav.page-tabs a[aria-current="page"] {
+            font-weight: 700;
+            color: var(--pico-primary-inverse);
+            background: linear-gradient(135deg, var(--pico-primary) 0%, #38bdf8 100%);
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .section-spacer {
+            display: grid;
+            gap: 1.25rem;
+        }
+
+        .bullet-list {
+            display: grid;
+            gap: 0.75rem;
+            padding-left: 1.15rem;
+        }
+
+        .bullet-list li {
+            color: var(--app-subtle);
+            padding-left: 0.2rem;
+        }
+
+        .table-count {
+            color: var(--pico-muted-color);
+            font-size: 0.84rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .mono-meta {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-size: 0.88rem;
+            color: var(--pico-muted-color);
+        }
+
+        @media (max-width: 960px) {
+            .topbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .hero {
+                padding: 1.15rem;
+            }
+
+            .hero-actions-right {
+                margin-left: 0;
+            }
+
+            .summary-grid,
+            .dashboard-hero-grid,
+            .dashboard-grid,
+            .detail-grid,
+            .dividend-card-meta,
+            .modal-detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .month-grid {
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="container">
+        <div class="topbar">
+            <nav class="page-tabs">
+                <ul>
+                    <li>
+                        <span class="brand-mark">
+                            <span class="brand-badge">D</span>
+                            <span>Dividend Viewer</span>
+                        </span>
+                    </li>
+                </ul>
+                <ul>
+                    <li><a href="/" {% if active_page == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a></li>
+                    <li><a href="/monthly" {% if active_page == "monthly" %}aria-current="page"{% endif %}>Monthly View</a></li>
+                    {% if active_page == "security" and selected_security %}
+                        <li><a href="/security/{{ selected_security.isin }}" aria-current="page">Security Details</a></li>
+                    {% endif %}
+                </ul>
+            </nav>
+            <div class="theme-toggle">
+                <details class="settings-menu">
+                    <summary class="settings-trigger" aria-label="Open settings">⚙</summary>
+                    <div class="settings-panel">
+                        <span class="settings-label">Theme</span>
+                        <div class="theme-options" role="group" aria-label="Theme selector">
+                            <button type="button" class="theme-button" data-theme-option="light" aria-label="Light mode" title="Light mode">☀</button>
+                            <button type="button" class="theme-button" data-theme-option="dark" aria-label="Dark mode" title="Dark mode">☾</button>
+                            <button type="button" class="theme-button" data-theme-option="system" aria-label="System mode" title="System mode">💻</button>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+        {% block content %}{% endblock %}
+    </main>
+    <dialog id="forecast-explanation-modal" class="app-modal">
+        <div class="app-modal-inner">
+            <div class="app-modal-header">
+                <h2>Forecast Explanation</h2>
+                <button type="button" class="app-modal-close" aria-label="Close forecast explanation">×</button>
+            </div>
+            <div id="forecast-explanation-modal-content" class="modal-content-shell">
+                <p class="modal-loading">Loading forecast explanation…</p>
+            </div>
+        </div>
+    </dialog>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script>
+        function applyThemePreference(themePreference) {
+            const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            const effectiveTheme = themePreference === "system" ? (systemDark ? "dark" : "light") : themePreference;
+            document.documentElement.setAttribute("data-theme", effectiveTheme);
+            document.documentElement.dataset.themePreference = themePreference;
+            document.documentElement.style.colorScheme = effectiveTheme;
+
+            document.querySelectorAll("[data-theme-option]").forEach((button) => {
+                button.classList.toggle("is-active", button.dataset.themeOption === themePreference);
+            });
+        }
+
+        function sortValueForCell(cell, type) {
+            const rawValue = cell?.dataset.sortValue ?? cell?.textContent?.trim() ?? "";
+            if (type === "number") {
+                const normalized = rawValue.replace(/[^0-9.+-]/g, "");
+                const parsed = Number.parseFloat(normalized);
+                return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+            }
+            if (type === "date") {
+                if (!rawValue || rawValue === "-") {
+                    return Number.NEGATIVE_INFINITY;
+                }
+                const parsed = Date.parse(rawValue);
+                return Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+            }
+            if (type === "boolean") {
+                return ["yes", "true", "1"].includes(rawValue.toLowerCase()) ? 1 : 0;
+            }
+            return rawValue.toLowerCase();
+        }
+
+        function compareValues(left, right, direction) {
+            if (left < right) {
+                return direction === "asc" ? -1 : 1;
+            }
+            if (left > right) {
+                return direction === "asc" ? 1 : -1;
+            }
+            return 0;
+        }
+
+        function initializeSortableTable(table) {
+            const headers = Array.from(table.querySelectorAll("thead th[data-sortable]"));
+            const tbody = table.querySelector("tbody");
+            if (!tbody || headers.length === 0) {
+                return;
+            }
+
+            headers.forEach((header, index) => {
+                const label = header.textContent.trim();
+                header.textContent = "";
+                header.setAttribute("aria-sort", "none");
+
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = "sort-button";
+                button.innerHTML = `<span>${label}</span><span class="sort-indicator">↕</span>`;
+
+                button.addEventListener("click", () => {
+                    const currentDirection = header.dataset.sortDirection === "asc" ? "desc" : "asc";
+                    headers.forEach((otherHeader) => {
+                        otherHeader.dataset.sortDirection = "";
+                        otherHeader.setAttribute("aria-sort", "none");
+                        const indicator = otherHeader.querySelector(".sort-indicator");
+                        if (indicator) {
+                            indicator.textContent = "↕";
+                        }
+                    });
+
+                    header.dataset.sortDirection = currentDirection;
+                    header.setAttribute("aria-sort", currentDirection === "asc" ? "ascending" : "descending");
+                    const indicator = header.querySelector(".sort-indicator");
+                    if (indicator) {
+                        indicator.textContent = currentDirection === "asc" ? "↑" : "↓";
+                    }
+
+                    const sortType = header.dataset.sortType || "text";
+                    const rows = Array.from(tbody.querySelectorAll("tr"));
+                    rows.sort((leftRow, rightRow) => {
+                        const leftValue = sortValueForCell(leftRow.cells[index], sortType);
+                        const rightValue = sortValueForCell(rightRow.cells[index], sortType);
+                        return compareValues(leftValue, rightValue, currentDirection);
+                    });
+                    rows.forEach((row) => tbody.appendChild(row));
+                });
+
+                header.appendChild(button);
+            });
+        }
+
+        document.querySelectorAll("table.sortable-table").forEach(initializeSortableTable);
+
+        const themePreference = localStorage.getItem("dividend-viewer-theme") || "system";
+        applyThemePreference(themePreference);
+
+        document.querySelectorAll("[data-theme-option]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const nextTheme = button.dataset.themeOption || "system";
+                localStorage.setItem("dividend-viewer-theme", nextTheme);
+                applyThemePreference(nextTheme);
+            });
+        });
+
+        const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+        if (typeof themeMedia.addEventListener === "function") {
+            themeMedia.addEventListener("change", () => {
+                const stored = localStorage.getItem("dividend-viewer-theme") || "system";
+                if (stored === "system") {
+                    applyThemePreference("system");
+                }
+            });
+        }
+
+        document.querySelectorAll(".settings-menu").forEach((menu) => {
+            document.addEventListener("click", (event) => {
+                if (!menu.hasAttribute("open")) {
+                    return;
+                }
+                if (!menu.contains(event.target)) {
+                    menu.removeAttribute("open");
+                }
+            });
+
+            menu.addEventListener("keydown", (event) => {
+                if (event.key === "Escape") {
+                    menu.removeAttribute("open");
+                }
+            });
+        });
+
+        function applyMonthlyDateMode(mode) {
+            document.querySelectorAll("[data-month-date-mode]").forEach((element) => {
+                element.dataset.monthDateMode = mode;
+            });
+            document.querySelectorAll("[data-date-toggle-mode]").forEach((button) => {
+                button.classList.toggle("is-active", button.dataset.dateToggleMode === mode);
+            });
+        }
+
+        const storedMonthDateMode = localStorage.getItem("dividend-viewer-month-date-mode") || "pay";
+        applyMonthlyDateMode(storedMonthDateMode);
+
+        document.querySelectorAll("[data-date-toggle-mode]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const mode = button.dataset.dateToggleMode || "pay";
+                localStorage.setItem("dividend-viewer-month-date-mode", mode);
+                applyMonthlyDateMode(mode);
+            });
+        });
+
+        const forecastModal = document.getElementById("forecast-explanation-modal");
+        const forecastModalContent = document.getElementById("forecast-explanation-modal-content");
+        const forecastModalClose = forecastModal?.querySelector(".app-modal-close");
+
+        function setForecastModalContent(html) {
+            if (forecastModalContent) {
+                forecastModalContent.innerHTML = html;
+            }
+        }
+
+        async function openForecastModal(link) {
+            const modalUrl = link.dataset.forecastModalUrl;
+            if (!forecastModal || !forecastModalContent || !modalUrl) {
+                window.location.href = link.href;
+                return;
+            }
+
+            setForecastModalContent('<p class="modal-loading">Loading forecast explanation…</p>');
+            if (typeof forecastModal.showModal === "function") {
+                forecastModal.showModal();
+            } else {
+                forecastModal.setAttribute("open", "open");
+            }
+
+            try {
+                const response = await fetch(modalUrl, {
+                    headers: {"X-Requested-With": "fetch"},
+                });
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+                setForecastModalContent(await response.text());
+            } catch (error) {
+                setForecastModalContent('<p class="modal-error">Unable to load this forecast explanation.</p>');
+            }
+        }
+
+        document.querySelectorAll("[data-forecast-modal-url]").forEach((link) => {
+            link.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                openForecastModal(link);
+            });
+        });
+
+        forecastModalClose?.addEventListener("click", () => {
+            forecastModal?.close();
+        });
+
+        forecastModal?.addEventListener("click", (event) => {
+            const bounds = forecastModal.getBoundingClientRect();
+            const clickedOutside =
+                event.clientX < bounds.left ||
+                event.clientX > bounds.right ||
+                event.clientY < bounds.top ||
+                event.clientY > bounds.bottom;
+            if (clickedOutside) {
+                forecastModal.close();
+            }
+        });
+
+        const portfolioChartCanvas = document.getElementById("portfolio-pie-chart");
+        if (portfolioChartCanvas && window.Chart) {
+            const chartData = JSON.parse(portfolioChartCanvas.dataset.chart || "[]");
+            if (chartData.length > 0) {
+                new window.Chart(portfolioChartCanvas, {
+                    type: "pie",
+                    data: {
+                        labels: chartData.map((item) => item.label),
+                        datasets: [{
+                            data: chartData.map((item) => item.value),
+                            backgroundColor: [
+                                "#0f766e",
+                                "#2563eb",
+                                "#ea580c",
+                                "#7c3aed",
+                                "#d97706",
+                                "#059669",
+                                "#dc2626",
+                                "#0891b2",
+                                "#4f46e5",
+                                "#65a30d",
+                            ],
+                            borderColor: getComputedStyle(document.documentElement).getPropertyValue("--chart-border").trim() || "#ffffff",
+                            borderWidth: 2,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: "bottom",
+                                labels: {
+                                    boxWidth: 14,
+                                    usePointStyle: true,
+                                },
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label(context) {
+                                        const item = chartData[context.dataIndex];
+                                        return [
+                                            `${item.name} (${item.code})`,
+                                            `Allocation: ${Number(context.raw).toFixed(2)}%`,
+                                            `Holding value: ${item.holding_value_formatted}`,
+                                        ];
+                                    },
+                                },
+                            },
+                        },
+                    },
+                });
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-shell">
+    <section class="hero">
+        <div class="hero-copy">
+            <span class="page-kicker">Portfolio Overview</span>
+            <div class="section-copy">
+                <h1>Portfolio Dashboard</h1>
+                <p>Track allocation, review holdings, and jump into dividend forecasting details without losing the high-level picture.</p>
+            </div>
+            {% if dashboard %}
+                <div class="hero-meta">
+                    <span class="meta-pill">{{ dashboard.portfolio_name }}</span>
+                    <span class="meta-pill"><span class="numeric">{{ dashboard.holdings|length }}</span> holdings</span>
+                </div>
+            {% endif %}
+        </div>
+        <div class="hero-actions">
+            <form method="post" action="/actions/refresh-cache">
+                <button type="submit">Refresh Cached Data</button>
+            </form>
+        </div>
+    </section>
+
+    {% if error_message %}
+        <article class="section-card">
+            <div class="section-body">
+                <p>{{ error_message }}</p>
+            </div>
+        </article>
+    {% elif dashboard %}
+        <section class="section-shell">
+            <article class="section-card chart-panel">
+                <header>
+                    <div class="section-copy">
+                        <span class="eyebrow">Allocation</span>
+                        <h2>{{ dashboard.portfolio_name }}</h2>
+                        <div class="chart-summary">
+                            <span class="metric-chip">
+                                <span class="metric-chip-label">Total Value</span>
+                                <span class="metric-chip-value numeric">{{ format_currency(dashboard.total_value, dashboard.portfolio_currency) }}</span>
+                            </span>
+                            <span class="metric-chip">
+                                <span class="metric-chip-label">Positions</span>
+                                <span class="metric-chip-value numeric">{{ dashboard.holdings|length }}</span>
+                            </span>
+                        </div>
+                    </div>
+                </header>
+                <div class="section-body">
+                    <div class="chart-wrap">
+                        <canvas
+                            id="portfolio-pie-chart"
+                            data-chart='[{% for row in dashboard.holdings %}{"label": {{ row.code | tojson }}, "name": {{ row.name | tojson }}, "code": {{ row.code | tojson }}, "value": {{ "%.4f"|format(row.portfolio_percentage) }}, "holding_value": {{ "%.4f"|format(row.value) }}, "holding_value_formatted": {{ format_currency(row.value, dashboard.portfolio_currency) | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]'
+                        ></canvas>
+                    </div>
+                </div>
+            </article>
+
+            <article class="section-card">
+                <header>
+                    <div class="section-copy">
+                        <span class="eyebrow">Holdings</span>
+                        <h2>Portfolio Holdings</h2>
+                        <p>Click any security to open its dedicated details page.</p>
+                    </div>
+                    <div class="header-actions">
+                        <span class="table-count"><span class="numeric">{{ dashboard.holdings|length }}</span> rows</span>
+                    </div>
+                </header>
+                <div class="table-scroll">
+                    <table class="sortable-table">
+                        <thead>
+                            <tr>
+                                <th data-sortable data-sort-type="number">#</th>
+                                <th data-sortable data-sort-type="text">Name</th>
+                                <th data-sortable data-sort-type="text">ISIN</th>
+                                <th data-sortable data-sort-type="text">Code</th>
+                                <th data-sortable data-sort-type="number">Value</th>
+                                <th data-sortable data-sort-type="number">Portfolio %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in dashboard.holdings %}
+                                <tr>
+                                    <td data-sort-value="{{ row.index }}" class="soft-text numeric">{{ row.index }}</td>
+                                    <td data-sort-value="{{ row.name }}"><a href="/security/{{ row.isin }}">{{ row.name }}</a></td>
+                                    <td data-sort-value="{{ row.isin }}" class="mono-meta">{{ row.isin }}</td>
+                                    <td data-sort-value="{{ row.code }}"><strong>{{ row.code }}</strong></td>
+                                    <td data-sort-value="{{ row.value }}" class="numeric">{{ format_currency(row.value, dashboard.portfolio_currency) }}</td>
+                                    <td data-sort-value="{{ row.portfolio_percentage }}" class="numeric">{{ "%.2f"|format(row.portfolio_percentage) }}%</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+    {% endif %}
+</div>
+{% endblock %}

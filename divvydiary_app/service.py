@@ -1,5 +1,5 @@
 from .client import DivvyDiaryClient
-from .estimator import DividendEstimator
+from .estimator import DividendEstimator, ForecastExplanation
 from .models import (
     DividendEvent,
     EstimatedSecurityDividendHistory,
@@ -45,5 +45,22 @@ class PortfolioService:
         histories = self.build_security_dividend_histories(resolved_portfolio)
         return [self.build_estimated_security_dividend_history(history) for history in histories]
 
+    def load_portfolio_data(
+        self,
+    ) -> tuple[ResolvedPortfolio, list[EstimatedSecurityDividendHistory]]:
+        resolved_portfolio = self.get_resolved_portfolio()
+        return resolved_portfolio, self.build_estimated_security_dividend_histories(resolved_portfolio)
+
     def clear_cache(self) -> None:
         self.client.clear_cache()
+
+    def explain_forecast(
+        self,
+        history: SecurityDividendHistory | EstimatedSecurityDividendHistory,
+        steps_ahead: int = 1,
+    ) -> ForecastExplanation | None:
+        base_history = SecurityDividendHistory(
+            security=history.security,
+            dividends=history.dividends,
+        )
+        return self.estimator.explain_forecast(base_history, steps_ahead)
