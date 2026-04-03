@@ -1,82 +1,69 @@
-<div class="modal-section">
-    <h3>Calculation Breakdown</h3>
-    <div class="modal-detail-grid">
+{% set sorted_rows = explanation.relevant_rows | sort(attribute='pay_date') %}
+{% set ref_index = namespace(value=-1) %}
+{% for row in sorted_rows %}{% if row.is_reference %}{% set ref_index.value = loop.index0 %}{% endif %}{% endfor %}
+
+<script type="application/json" id="forecast-chart-data">
+{
+    "labels": {{ sorted_rows | map(attribute='pay_date') | list | tojson }},
+    "amounts": {{ sorted_rows | map(attribute='amount') | list | tojson }},
+    "referenceIndex": {{ ref_index.value }},
+    "forecastLabel": {{ explanation.predicted_pay_date | tojson }},
+    "forecastAmount": {{ explanation.predicted_amount | tojson }},
+    "isTrend": {{ explanation.is_trend | tojson }},
+    "currency": {{ explanation.currency | tojson }}
+}
+</script>
+
+<div class="modal-content-shell">
+    <div class="forecast-exp-summary">
+        <div class="forecast-exp-amount">
+            <span class="forecast-exp-amount-label">Forecast</span>
+            <span class="forecast-exp-amount-value">{{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}</span>
+        </div>
+        <div class="forecast-exp-meta">
+            <div>
+                <span class="forecast-exp-meta-label">Pay date</span>
+                <span class="forecast-exp-meta-value numeric">{{ explanation.predicted_pay_date or "—" }}</span>
+            </div>
+            {% if explanation.predicted_ex_date %}
+            <div>
+                <span class="forecast-exp-meta-label">Ex-date</span>
+                <span class="forecast-exp-meta-value numeric">{{ explanation.predicted_ex_date }}</span>
+            </div>
+            {% endif %}
+            <div>
+                <span class="forecast-exp-meta-label">Cadence</span>
+                <span class="forecast-exp-meta-value">{{ explanation.cadence_name }}</span>
+            </div>
+            <div>
+                <span class="forecast-exp-meta-label">Confidence</span>
+                <span class="forecast-exp-meta-value">{{ explanation.confidence }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="forecast-exp-chart-wrap">
+        <canvas id="forecast-explanation-chart"></canvas>
+    </div>
+
+    <div class="forecast-exp-legend">
+        <span class="forecast-exp-legend-item forecast-exp-legend-historical">Historical</span>
+        {% if ref_index.value >= 0 %}
+        <span class="forecast-exp-legend-item forecast-exp-legend-reference">Reference</span>
+        {% endif %}
+        <span class="forecast-exp-legend-item forecast-exp-legend-forecast">Forecast</span>
         {% if explanation.is_trend %}
-            <div class="detail-card">
-                <strong>Weighted trend prediction</strong><br>
-                <span class="numeric">{{ format_currency(explanation.regression_prediction, explanation.currency, 4) }}</span>
-            </div>
-            <div class="detail-card">
-                <strong>Latest matching dividend</strong><br>
-                <span class="numeric">{{ format_currency(explanation.latest_reference_amount, explanation.currency, 4) }}</span>
-            </div>
-            <div class="detail-card">
-                <strong>Blend formula</strong><br>
-                70% trend + 30% latest matching dividend
-            </div>
-            <div class="detail-card">
-                <strong>Final forecast amount</strong><br>
-                <span class="numeric">{{ format_currency(explanation.blended_prediction, explanation.currency, 4) }}</span>
-            </div>
-        {% else %}
-            <div class="detail-card">
-                <strong>Reference dividend amount</strong><br>
-                <span class="numeric">{{ format_currency(explanation.latest_reference_amount, explanation.currency, 4) }}</span>
-            </div>
-            <div class="detail-card">
-                <strong>Final forecast amount</strong><br>
-                <span class="numeric">{{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}</span>
-            </div>
-            <div class="detail-card">
-                <strong>Method note</strong><br>
-                {% if explanation.is_same_season %}
-                    Reused the latest dividend from the same seasonal slot.
-                {% else %}
-                    Reused the latest confirmed dividend as a fallback.
-                {% endif %}
-            </div>
-            <div class="detail-card">
-                <strong>Ex-date gap</strong><br>
-                {% if explanation.median_ex_to_pay_gap_days is not none %}
-                    <span class="numeric">{{ explanation.median_ex_to_pay_gap_days }}</span> day median ex-to-pay gap
-                {% else %}
-                    No ex-date estimate input available
-                {% endif %}
-            </div>
+        <span class="forecast-exp-legend-item forecast-exp-legend-trend">Trend</span>
         {% endif %}
     </div>
-</div>
 
-<div class="modal-section">
-    <h3>Relevant Dividend Events Used For The Prediction</h3>
-    {% if explanation.relevant_rows %}
-        <div class="table-scroll table-scroll-compact">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Pay Date</th>
-                        <th>Ex Date</th>
-                        <th>Amount</th>
-                        <th>Currency</th>
-                        <th>Weight</th>
-                        <th>Ref.</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in explanation.relevant_rows | sort(attribute='pay_date', reverse=True) %}
-                        <tr>
-                            <td class="numeric">{{ row.pay_date }}</td>
-                            <td class="numeric">{{ row.ex_date }}</td>
-                            <td class="numeric">{{ format_amount(row.amount, 4) }}</td>
-                            <td>{{ row.currency or "-" }}</td>
-                            <td class="numeric">{{ format_amount(row.weight, 4) if row.weight is not none else "-" }}</td>
-                            <td>{{ "yes" if row.is_reference else "no" }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <p class="empty-state">No seasonal comparison events were available for this forecast.</p>
-    {% endif %}
+    <p class="forecast-exp-narrative">
+        {% if explanation.is_trend %}
+            Based on {{ sorted_rows | length }} {{ explanation.cadence_name }} payment{% if sorted_rows | length != 1 %}s{% endif %} with a rising trend, the next dividend is forecast at {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}{% if explanation.predicted_pay_date %} on {{ explanation.predicted_pay_date }}{% endif %}.
+        {% elif explanation.is_same_season %}
+            Based on the {{ explanation.cadence_name }} payment from the same seasonal slot, the next dividend is forecast at {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}{% if explanation.predicted_pay_date %} on {{ explanation.predicted_pay_date }}{% endif %}.
+        {% else %}
+            Based on the most recent confirmed dividend, the next dividend is forecast at {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}{% if explanation.predicted_pay_date %} on {{ explanation.predicted_pay_date }}{% endif %}.
+        {% endif %}
+    </p>
 </div>

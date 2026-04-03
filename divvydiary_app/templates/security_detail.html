@@ -93,7 +93,7 @@
                                         <td data-sort-value="{{ row.amount_per_share if row.amount_per_share is not none else '' }}">{{ format_amount(row.amount_per_share, 4) }}</td>
                                         <td data-sort-value="{{ row.total_amount if row.total_amount is not none else '' }}">{{ format_currency(row.total_amount, row.currency) }}</td>
                                         <td data-sort-value="{{ row.currency or '' }}">{{ row.currency or "-" }}</td>
-                                        <td><a href="/security/{{ security.isin }}/forecast/{{ row.index }}" role="button" class="secondary outline">Explain</a></td>
+                                        <td><a href="/security/{{ security.isin }}/forecast/{{ row.index }}" role="button" class="secondary outline" data-forecast-modal-url="/security/{{ security.isin }}/forecast/{{ row.index }}/modal">Explain</a></td>
                                     </tr>
                                 {% endfor %}
                             </tbody>
