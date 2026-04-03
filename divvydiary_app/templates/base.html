@@ -1502,6 +1502,23 @@
             forecastModal?.close();
         });
 
+        const refreshCacheForm = document.getElementById("refresh-cache-form");
+        const refreshCacheBtn = document.getElementById("refresh-cache-btn");
+
+        if (refreshCacheForm && refreshCacheBtn) {
+            refreshCacheForm.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                refreshCacheBtn.setAttribute("aria-busy", "true");
+                refreshCacheBtn.disabled = true;
+                refreshCacheBtn.textContent = "Refreshing…";
+                try {
+                    await fetch("/actions/refresh-cache", { method: "POST" });
+                } finally {
+                    window.location.href = "/";
+                }
+            });
+        }
+
         forecastModal?.addEventListener("click", (event) => {
             const bounds = forecastModal.getBoundingClientRect();
             const clickedOutside =
