@@ -1306,6 +1306,21 @@
             gap: 0.4rem;
         }
 
+        .forecast-exp-legend-item[data-legend-dataset] {
+            cursor: pointer;
+            user-select: none;
+            transition: opacity 120ms ease;
+        }
+
+        .forecast-exp-legend-item[data-legend-dataset]:hover {
+            opacity: 0.7;
+        }
+
+        .forecast-exp-legend-item.is-inactive {
+            opacity: 0.35;
+            text-decoration: line-through;
+        }
+
         .forecast-exp-legend-item::before {
             content: '';
             display: inline-block;
@@ -1754,9 +1769,11 @@
                     pointRadius: 2,
                     pointBackgroundColor: "rgba(251, 146, 60, 0.65)",
                     fill: false,
-                    tension: 0.15,
+                    tension: 0,
                 });
             }
+
+            const legendContainer = forecastModalContent;
 
             forecastChart = new window.Chart(canvas, {
                 type: "bar",
@@ -1792,6 +1809,19 @@
                         },
                     },
                 },
+            });
+
+            legendContainer.querySelectorAll("[data-legend-dataset]").forEach((item) => {
+                const idx = parseInt(item.dataset.legendDataset, 10);
+                item.addEventListener("click", () => {
+                    if (forecastChart.isDatasetVisible(idx)) {
+                        forecastChart.hide(idx);
+                        item.classList.add("is-inactive");
+                    } else {
+                        forecastChart.show(idx);
+                        item.classList.remove("is-inactive");
+                    }
+                });
             });
         }
 

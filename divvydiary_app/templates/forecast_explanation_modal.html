@@ -90,13 +90,13 @@
     </div>
 
     <div class="forecast-exp-legend">
-        <span class="forecast-exp-legend-item forecast-exp-legend-historical">Historical</span>
+        <span class="forecast-exp-legend-item forecast-exp-legend-historical" data-legend-dataset="0">Historical</span>
         {% if ref_index.value >= 0 %}
-        <span class="forecast-exp-legend-item forecast-exp-legend-reference">Reference</span>
+        <span class="forecast-exp-legend-item forecast-exp-legend-reference" title="Highlighted within the Historical bars — not a separate series">Reference</span>
         {% endif %}
-        <span class="forecast-exp-legend-item forecast-exp-legend-forecast">Forecast</span>
+        <span class="forecast-exp-legend-item forecast-exp-legend-forecast" data-legend-dataset="1">Forecast</span>
         {% if explanation.is_trend %}
-        <span class="forecast-exp-legend-item forecast-exp-legend-trend">Trend</span>
+        <span class="forecast-exp-legend-item forecast-exp-legend-trend" data-legend-dataset="2">Trend</span>
         {% endif %}
     </div>
 
