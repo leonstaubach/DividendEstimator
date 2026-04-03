@@ -86,6 +86,7 @@ class ForecastExplanationView:
     predicted_amount: float | None
     predicted_total_amount: float | None
     confidence: str
+    confidence_score: float
     basis: str
     cadence_name: str
     median_gap_days: int
@@ -101,6 +102,14 @@ class ForecastExplanationView:
     regression_prediction: float | None
     blended_prediction: float | None
     latest_reference_amount: float | None
+    outliers_removed_count: int
+    outliers_removed_amounts: list[float]
+    suspension_detected: bool
+    history_start_date: str | None
+    cadence_regime_change: bool
+    was_growth_capped: bool
+    uncapped_prediction: float | None
+    growth_rate: float | None
 
 
 @dataclass(frozen=True)
@@ -315,6 +324,7 @@ def build_forecast_explanation_view(
             )
         )
 
+    trend = explanation.trend_analysis
     return ForecastExplanationView(
         security_name=history.security.name,
         isin=history.security.isin,
@@ -326,6 +336,7 @@ def build_forecast_explanation_view(
         predicted_amount=explanation.predicted_amount,
         predicted_total_amount=event_total_amount(explanation.predicted_amount, history.security.quantity),
         confidence=explanation.confidence,
+        confidence_score=explanation.confidence_score,
         basis=explanation.basis,
         cadence_name=explanation.cadence.name,
         median_gap_days=explanation.cadence.median_gap_days,
@@ -346,13 +357,21 @@ def build_forecast_explanation_view(
             for event in explanation.all_confirmed_dividends
         ],
         relevant_rows=relevant_rows,
-        regression_prediction=explanation.trend_analysis.regression_prediction if explanation.trend_analysis else None,
-        blended_prediction=explanation.trend_analysis.blended_prediction if explanation.trend_analysis else None,
+        regression_prediction=trend.regression_prediction if trend else None,
+        blended_prediction=trend.blended_prediction if trend else None,
         latest_reference_amount=(
-            explanation.trend_analysis.latest_amount
-            if explanation.trend_analysis is not None
+            trend.latest_amount
+            if trend is not None
             else explanation.chosen_reference_dividend.amount if explanation.chosen_reference_dividend is not None else None
         ),
+        outliers_removed_count=len(explanation.outliers_removed),
+        outliers_removed_amounts=[d.amount for d in explanation.outliers_removed if d.amount is not None],
+        suspension_detected=explanation.suspension_detected,
+        history_start_date=explanation.history_start_date,
+        cadence_regime_change=explanation.cadence_regime_change,
+        was_growth_capped=trend.was_capped if trend else False,
+        uncapped_prediction=trend.uncapped_prediction if trend and trend.was_capped else None,
+        growth_rate=trend.growth_rate if trend else None,
     )
 
 
@@ -492,10 +511,37 @@ def forecast_summary_lines(explanation: ForecastExplanation) -> list[str]:
             f"The ex date is estimated by subtracting the median ex-to-pay gap of {explanation.median_ex_to_pay_gap_days} days."
         )
 
-    if explanation.basis.endswith("_trend"):
+    if explanation.outliers_removed:
+        amounts_str = ", ".join(f"{d.amount:.4f}" for d in explanation.outliers_removed if d.amount is not None)
         lines.append(
-            "The amount comes from a weighted trend line across matching seasonal dividends, then blends that trend with the latest matching seasonal payment."
+            f"{len(explanation.outliers_removed)} outlier dividend(s) were excluded from the analysis as likely special payments (amounts: {amounts_str})."
         )
+
+    if explanation.suspension_detected and explanation.history_start_date:
+        lines.append(
+            f"A dividend suspension was detected. Only post-resumption history from {explanation.history_start_date} onward is used."
+        )
+
+    if explanation.cadence_regime_change:
+        lines.append(
+            "The payment cadence appears to have changed recently. Only the most recent payments are used for the forecast."
+        )
+
+    trend = explanation.trend_analysis
+    if explanation.basis.endswith("_trend"):
+        if trend is not None and trend.growth_rate is not None:
+            pct = trend.growth_rate * 100
+            lines.append(
+                f"The amount was predicted using a weighted year-over-year growth rate of {pct:+.1f}% applied to the latest matching seasonal payment."
+            )
+        else:
+            lines.append(
+                "The amount comes from a weighted trend line across matching seasonal dividends, then blends that trend with the latest matching seasonal payment."
+            )
+        if trend is not None and trend.was_capped:
+            lines.append(
+                f"The raw prediction was capped to the allowed growth range (−40% / +20% of the reference payment). Uncapped value was {trend.uncapped_prediction:.4f}."
+            )
     elif explanation.basis.endswith("_same_season"):
         lines.append(
             "The amount reuses the latest dividend from the same seasonal slot because there was not enough same-slot history for a stable trend fit."

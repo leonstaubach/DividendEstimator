@@ -15,6 +15,37 @@
 </script>
 
 <div class="modal-content-shell">
+
+    {% set has_notices = explanation.outliers_removed_count > 0 or explanation.suspension_detected or explanation.cadence_regime_change or explanation.was_growth_capped %}
+    {% if has_notices %}
+    <div class="forecast-notice-list">
+        {% if explanation.outliers_removed_count > 0 %}
+        <div class="forecast-notice forecast-notice-warn">
+            <span>⚠</span>
+            <span>{{ explanation.outliers_removed_count }} special/outlier dividend{{ "s" if explanation.outliers_removed_count != 1 else "" }} excluded from analysis</span>
+        </div>
+        {% endif %}
+        {% if explanation.suspension_detected and explanation.history_start_date %}
+        <div class="forecast-notice forecast-notice-info">
+            <span>ℹ</span>
+            <span>Dividend suspension detected — using history from {{ explanation.history_start_date }} onward</span>
+        </div>
+        {% endif %}
+        {% if explanation.cadence_regime_change %}
+        <div class="forecast-notice forecast-notice-info">
+            <span>ℹ</span>
+            <span>Cadence change detected — only recent payments used</span>
+        </div>
+        {% endif %}
+        {% if explanation.was_growth_capped %}
+        <div class="forecast-notice forecast-notice-muted">
+            <span>↑</span>
+            <span>Predicted growth was capped at the +20% limit</span>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <div class="forecast-exp-summary">
         <div class="forecast-exp-amount">
             <span class="forecast-exp-amount-label">Forecast</span>
@@ -38,7 +69,19 @@
             <div>
                 <span class="forecast-exp-meta-label">Confidence</span>
                 <span class="forecast-exp-meta-value">{{ explanation.confidence }}</span>
+                <div class="confidence-bar-wrap">
+                    <div class="confidence-bar-track">
+                        <div class="confidence-bar-fill" style="width: {{ (explanation.confidence_score * 100) | round | int }}%"></div>
+                    </div>
+                    <span class="confidence-score-label">{{ "%.0f"|format(explanation.confidence_score * 100) }}%</span>
+                </div>
             </div>
+            {% if explanation.growth_rate is not none %}
+            <div>
+                <span class="forecast-exp-meta-label">YoY growth</span>
+                <span class="forecast-exp-meta-value">{{ "%+.1f"|format(explanation.growth_rate * 100) }}%</span>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -57,9 +100,24 @@
         {% endif %}
     </div>
 
+    {% if explanation.outliers_removed_count > 0 %}
+    <details class="outlier-details">
+        <summary>{{ explanation.outliers_removed_count }} excluded outlier{{ "s" if explanation.outliers_removed_count != 1 else "" }} — click to view amounts</summary>
+        <div class="outlier-amounts">
+            {% for amount in explanation.outliers_removed_amounts %}
+            <span class="outlier-amount-chip">{{ format_amount(amount, 4) }} {{ explanation.currency or "" }}</span>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+
     <p class="forecast-exp-narrative">
         {% if explanation.is_trend %}
-            Based on {{ sorted_rows | length }} {{ explanation.cadence_name }} payment{% if sorted_rows | length != 1 %}s{% endif %} with a rising trend, the next dividend is forecast at {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}{% if explanation.predicted_pay_date %} on {{ explanation.predicted_pay_date }}{% endif %}.
+            {% if explanation.growth_rate is not none %}
+                Based on a weighted year-over-year growth rate of {{ "%+.1f"|format(explanation.growth_rate * 100) }}% across {{ sorted_rows | length }} {{ explanation.cadence_name }} payment{{ "s" if sorted_rows | length != 1 else "" }}, the next dividend is forecast at {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}{% if explanation.predicted_pay_date %} on {{ explanation.predicted_pay_date }}{% endif %}.{% if explanation.was_growth_capped %} Growth was capped at the +20% limit.{% endif %}
+            {% else %}
+                Based on {{ sorted_rows | length }} {{ explanation.cadence_name }} payment{{ "s" if sorted_rows | length != 1 else "" }} with a trend, the next dividend is forecast at {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}{% if explanation.predicted_pay_date %} on {{ explanation.predicted_pay_date }}{% endif %}.
+            {% endif %}
         {% elif explanation.is_same_season %}
             Based on the {{ explanation.cadence_name }} payment from the same seasonal slot, the next dividend is forecast at {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}{% if explanation.predicted_pay_date %} on {{ explanation.predicted_pay_date }}{% endif %}.
         {% else %}
