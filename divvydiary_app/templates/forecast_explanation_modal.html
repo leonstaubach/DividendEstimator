@@ -102,10 +102,10 @@
 
     {% if explanation.outliers_removed_count > 0 %}
     <details class="outlier-details">
-        <summary>{{ explanation.outliers_removed_count }} excluded outlier{{ "s" if explanation.outliers_removed_count != 1 else "" }} — click to view amounts</summary>
+        <summary>{{ explanation.outliers_removed_count }} excluded outlier{{ "s" if explanation.outliers_removed_count != 1 else "" }} — click to view</summary>
         <div class="outlier-amounts">
-            {% for amount in explanation.outliers_removed_amounts %}
-            <span class="outlier-amount-chip">{{ format_amount(amount, 4) }} {{ explanation.currency or "" }}</span>
+            {% for row in explanation.outliers_removed_rows %}
+            <span class="outlier-amount-chip">{{ row.pay_date or "—" }} · {{ format_amount(row.amount, 4) }} {{ explanation.currency or "" }}</span>
             {% endfor %}
         </div>
     </details>

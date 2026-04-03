@@ -75,6 +75,12 @@ class ForecastRelevantDividendRow:
 
 
 @dataclass(frozen=True)
+class OutlierDividendRow:
+    pay_date: str | None
+    amount: float
+
+
+@dataclass(frozen=True)
 class ForecastExplanationView:
     security_name: str
     isin: str
@@ -103,7 +109,7 @@ class ForecastExplanationView:
     blended_prediction: float | None
     latest_reference_amount: float | None
     outliers_removed_count: int
-    outliers_removed_amounts: list[float]
+    outliers_removed_rows: list[OutlierDividendRow]
     suspension_detected: bool
     history_start_date: str | None
     cadence_regime_change: bool
@@ -365,7 +371,11 @@ def build_forecast_explanation_view(
             else explanation.chosen_reference_dividend.amount if explanation.chosen_reference_dividend is not None else None
         ),
         outliers_removed_count=len(explanation.outliers_removed),
-        outliers_removed_amounts=[d.amount for d in explanation.outliers_removed if d.amount is not None],
+        outliers_removed_rows=[
+            OutlierDividendRow(pay_date=d.pay_date, amount=d.amount)
+            for d in explanation.outliers_removed
+            if d.amount is not None
+        ],
         suspension_detected=explanation.suspension_detected,
         history_start_date=explanation.history_start_date,
         cadence_regime_change=explanation.cadence_regime_change,
