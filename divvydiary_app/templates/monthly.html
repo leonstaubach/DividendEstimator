@@ -97,16 +97,17 @@
                                 <div class="month-cards">
                                     {% for row in month.estimated_rows %}
                                         <details class="dividend-card payment-card is-forecast">
-                                            {% if row.forecast_index is not none %}
-                                                <a
-                                                    href="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}"
-                                                    class="forecast-card-badge forecast-card-badge-overlay"
-                                                    data-forecast-modal-url="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}/modal"
-                                                >✦ <span class="forecast-card-badge-label">Explain</span></a>
-                                            {% endif %}
                                             <summary class="payment-card-summary">
                                                 <div class="payment-card-summary-top">
-                                                    <span class="forecast-card-badge forecast-card-badge-placeholder" aria-hidden="true">✦ <span class="forecast-card-badge-label">Explain</span></span>
+                                                    {% if row.forecast_index is not none %}
+                                                        <a
+                                                            href="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}"
+                                                            class="forecast-card-badge"
+                                                            data-forecast-modal-url="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}/modal"
+                                                        >✦ <span class="forecast-card-badge-label">Explain</span></a>
+                                                    {% else %}
+                                                        <span class="forecast-card-badge forecast-card-badge-placeholder" aria-hidden="true">✦ <span class="forecast-card-badge-label">Explain</span></span>
+                                                    {% endif %}
                                                     <div class="dividend-card-title">
                                                         <h3>{{ row.security_name }} ({{ row.security_code }})</h3>
                                                         <p class="numeric">{{ format_currency(row.total_amount, row.currency) }}</p>
