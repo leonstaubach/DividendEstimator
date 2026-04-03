@@ -57,11 +57,14 @@
                                         <details class="dividend-card payment-card">
                                             <summary class="payment-card-summary">
                                                 <div class="payment-card-summary-top">
+                                                    <span class="payment-card-accessory payment-card-accessory-left" aria-hidden="true"></span>
                                                     <div class="dividend-card-title">
                                                         <h3>{{ row.security_name }} ({{ row.security_code }})</h3>
                                                         <p class="numeric">{{ format_currency(row.total_amount, row.currency) }}</p>
                                                     </div>
-                                                    <span class="payment-card-chevron">⌄</span>
+                                                    <span class="payment-card-accessory payment-card-accessory-right">
+                                                        <span class="payment-card-chevron">⌄</span>
+                                                    </span>
                                                 </div>
                                                 <div class="dividend-card-compact-date numeric" data-month-date-mode="pay">
                                                     <span class="compact-pay-date">{{ format_display_date(row.pay_date, include_weekday=False) }}</span>
@@ -99,20 +102,24 @@
                                         <details class="dividend-card payment-card is-forecast">
                                             <summary class="payment-card-summary">
                                                 <div class="payment-card-summary-top">
-                                                    {% if row.forecast_index is not none %}
-                                                        <a
-                                                            href="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}"
-                                                            class="forecast-card-badge"
-                                                            data-forecast-modal-url="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}/modal"
-                                                        >✦ <span class="forecast-card-badge-label">Explain</span></a>
-                                                    {% else %}
-                                                        <span class="forecast-card-badge forecast-card-badge-placeholder" aria-hidden="true">✦ <span class="forecast-card-badge-label">Explain</span></span>
-                                                    {% endif %}
+                                                    <span class="payment-card-accessory payment-card-accessory-left">
+                                                        {% if row.forecast_index is not none %}
+                                                            <a
+                                                                href="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}"
+                                                                class="forecast-card-badge"
+                                                                data-forecast-modal-url="/security/{{ row.isin }}/forecast/{{ row.forecast_index }}/modal"
+                                                            >✦ <span class="forecast-card-badge-label">Explain</span></a>
+                                                        {% else %}
+                                                            <span class="forecast-card-badge forecast-card-badge-placeholder" aria-hidden="true">✦ <span class="forecast-card-badge-label">Explain</span></span>
+                                                        {% endif %}
+                                                    </span>
                                                     <div class="dividend-card-title">
                                                         <h3>{{ row.security_name }} ({{ row.security_code }})</h3>
                                                         <p class="numeric">{{ format_currency(row.total_amount, row.currency) }}</p>
                                                     </div>
-                                                    <span class="payment-card-chevron">⌄</span>
+                                                    <span class="payment-card-accessory payment-card-accessory-right">
+                                                        <span class="payment-card-chevron">⌄</span>
+                                                    </span>
                                                 </div>
                                                 <div class="dividend-card-compact-date numeric" data-month-date-mode="pay">
                                                     <span class="compact-pay-date">{{ format_display_date(row.pay_date, include_weekday=False) }}</span>

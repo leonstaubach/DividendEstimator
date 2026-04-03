@@ -767,20 +767,30 @@
 
         .payment-card-summary-top {
             display: grid;
-            grid-template-columns: auto minmax(0, 1fr) 1.35rem;
-            align-items: flex-start;
+            grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr) minmax(0, 6.5rem);
+            align-items: center;
             gap: 0.75rem;
+        }
+
+        .payment-card-accessory {
+            display: flex;
+            min-width: 0;
+            min-height: 1.35rem;
+            align-items: center;
+        }
+
+        .payment-card-accessory-left {
+            justify-content: flex-start;
+        }
+
+        .payment-card-accessory-right {
+            justify-content: flex-end;
         }
 
         .payment-card-summary-top .dividend-card-title {
             grid-column: 2;
             width: 100%;
             margin: 0 auto;
-        }
-
-        .payment-card-summary-top .forecast-card-badge {
-            grid-column: 1;
-            justify-self: start;
         }
 
         .forecast-card-badge-overlay {
@@ -800,13 +810,10 @@
         }
 
         .payment-card-chevron {
-            grid-column: 3;
-            justify-self: end;
             color: var(--pico-muted-color);
             font-size: 0.95rem;
             transition: transform 150ms ease;
             flex: 0 0 auto;
-            align-self: flex-end;
         }
 
         .payment-card[open] .payment-card-chevron {
