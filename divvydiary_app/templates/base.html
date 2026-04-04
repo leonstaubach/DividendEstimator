@@ -1487,6 +1487,196 @@
             color: var(--pico-muted-color);
         }
 
+        .security-dashboard-shell {
+            gap: 1.25rem;
+        }
+
+        .security-overview-body {
+            display: grid;
+            gap: 1.35rem;
+        }
+
+        .security-kpi-strip {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 0.95rem;
+        }
+
+        .security-kpi-card {
+            display: grid;
+            gap: 0.38rem;
+            padding: 1rem 1.05rem;
+            border: 1px solid var(--app-border);
+            border-radius: 1rem;
+            background: linear-gradient(180deg, var(--app-surface-strong) 0%, var(--app-surface) 100%);
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .security-kpi-card-confidence {
+            background: linear-gradient(180deg, color-mix(in srgb, var(--pico-primary) 10%, var(--app-surface-strong)) 0%, var(--app-surface) 100%);
+        }
+
+        .security-kpi-label {
+            color: var(--pico-muted-color);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .security-kpi-value {
+            color: var(--app-heading);
+            font-size: 1.25rem;
+            font-weight: 800;
+            line-height: 1.15;
+        }
+
+        .security-kpi-note {
+            color: var(--app-subtle);
+            font-size: 0.84rem;
+        }
+
+        .security-insight-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+            gap: 1rem;
+            align-items: stretch;
+        }
+
+        .security-panel-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.95rem;
+        }
+
+        .security-panel-header h2 {
+            margin: 0 0 0.28rem;
+            font-size: 1.15rem;
+        }
+
+        .security-panel-header p {
+            margin: 0;
+            font-size: 0.92rem;
+        }
+
+        .security-chart-toolbar {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .security-chart-wrap {
+            position: relative;
+            min-height: 320px;
+        }
+
+        .security-spotlight-card {
+            display: grid;
+            align-content: start;
+        }
+
+        .security-spotlight-stack {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .security-spotlight-amount {
+            display: grid;
+            gap: 0.22rem;
+            padding: 1.05rem 1.1rem;
+            border: 1px solid color-mix(in srgb, var(--pico-primary) 24%, var(--app-border));
+            border-radius: 1rem;
+            background: linear-gradient(160deg, color-mix(in srgb, var(--pico-primary) 14%, var(--app-surface-strong)) 0%, var(--app-surface) 100%);
+        }
+
+        .security-spotlight-label {
+            color: var(--pico-muted-color);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .security-spotlight-value {
+            color: var(--app-heading);
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .security-spotlight-note {
+            color: var(--app-subtle);
+            font-size: 0.92rem;
+            font-weight: 600;
+        }
+
+        .security-spotlight-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+        }
+
+        .security-spotlight-action {
+            justify-self: start;
+        }
+
+        .security-forecast-ladder {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 1rem;
+        }
+
+        .security-forecast-card {
+            display: grid;
+            gap: 0.85rem;
+            padding: 1rem 1.05rem;
+            border: 1px solid var(--app-border);
+            border-radius: 1rem;
+            background: linear-gradient(180deg, var(--app-surface-strong) 0%, var(--app-surface) 100%);
+            box-shadow: var(--app-shadow-soft);
+        }
+
+        .security-forecast-card.is-primary {
+            border-color: color-mix(in srgb, #fb923c 38%, var(--app-border));
+            background: linear-gradient(180deg, color-mix(in srgb, #fb923c 12%, var(--app-surface-strong)) 0%, var(--app-surface) 100%);
+        }
+
+        .security-forecast-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .security-forecast-card-date {
+            color: var(--pico-muted-color);
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
+
+        .security-forecast-card-amount {
+            color: var(--app-heading);
+            font-size: 1.55rem;
+            font-weight: 800;
+            line-height: 1.05;
+        }
+
+        .security-forecast-card-support {
+            margin: 0;
+            color: var(--app-subtle);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .security-forecast-card-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.8rem;
+        }
+
         @media (max-width: 960px) {
             .topbar {
                 flex-direction: column;
@@ -1506,12 +1696,25 @@
             .dashboard-grid,
             .detail-grid,
             .dividend-card-meta,
-            .modal-detail-grid {
+            .modal-detail-grid,
+            .security-insight-grid,
+            .security-spotlight-meta,
+            .security-forecast-card-meta {
                 grid-template-columns: 1fr;
             }
 
             .month-grid {
                 max-width: 100%;
+            }
+
+            .security-kpi-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 700px) {
+            .security-kpi-strip {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -1713,6 +1916,108 @@
                 const mode = button.dataset.dateToggleMode || "pay";
                 localStorage.setItem("dividend-viewer-month-date-mode", mode);
                 applyMonthlyDateMode(mode);
+            });
+        });
+
+        let securityDetailChart = null;
+
+        function renderSecurityDetailChart(mode) {
+            const chartDataEl = document.getElementById("security-chart-data");
+            const canvas = document.getElementById("security-detail-chart");
+            if (!chartDataEl || !canvas || !window.Chart) {
+                return;
+            }
+
+            const chartData = JSON.parse(chartDataEl.textContent);
+            const decimals = mode === "total" ? 2 : 4;
+            const unitLabel = mode === "total" ? "position total" : "per share";
+            const confirmedData = mode === "total" ? chartData.historicalTotal : chartData.historicalPerShare;
+            const forecastData = mode === "total" ? chartData.forecastTotal : chartData.forecastPerShare;
+
+            if (securityDetailChart) {
+                securityDetailChart.destroy();
+                securityDetailChart = null;
+            }
+
+            securityDetailChart = new window.Chart(canvas, {
+                type: "bar",
+                data: {
+                    labels: chartData.labels,
+                    datasets: [
+                        {
+                            label: "Confirmed",
+                            data: confirmedData,
+                            backgroundColor: "rgba(56, 189, 248, 0.75)",
+                            borderColor: "rgba(14, 165, 233, 0.95)",
+                            borderWidth: 1,
+                            borderRadius: 8,
+                        },
+                        {
+                            label: "Forecast",
+                            data: forecastData,
+                            backgroundColor: "rgba(251, 146, 60, 0.18)",
+                            borderColor: "rgba(251, 146, 60, 0.95)",
+                            borderWidth: 2,
+                            borderRadius: 8,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title(items) {
+                                    if (!items.length) {
+                                        return "";
+                                    }
+                                    return chartData.payDates[items[0].dataIndex] || chartData.labels[items[0].dataIndex];
+                                },
+                                label(context) {
+                                    const value = context.raw;
+                                    if (value === null || value === undefined) {
+                                        return null;
+                                    }
+                                    const formatted = Number(value).toFixed(decimals);
+                                    return chartData.currency
+                                        ? `${context.dataset.label}: ${formatted} ${chartData.currency} ${unitLabel}`
+                                        : `${context.dataset.label}: ${formatted} ${unitLabel}`;
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: "rgba(128, 128, 128, 0.12)" },
+                            ticks: { maxTicksLimit: 6 },
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 },
+                        },
+                    },
+                },
+            });
+        }
+
+        function applySecurityChartMode(mode) {
+            document.querySelectorAll("[data-security-chart-mode]").forEach((button) => {
+                button.classList.toggle("is-active", button.dataset.securityChartMode === mode);
+            });
+            renderSecurityDetailChart(mode);
+        }
+
+        const storedSecurityChartMode = localStorage.getItem("dividend-viewer-security-chart-mode") || "per_share";
+        applySecurityChartMode(storedSecurityChartMode);
+
+        document.querySelectorAll("[data-security-chart-mode]").forEach((button) => {
+            button.addEventListener("click", () => {
+                const mode = button.dataset.securityChartMode || "per_share";
+                localStorage.setItem("dividend-viewer-security-chart-mode", mode);
+                applySecurityChartMode(mode);
             });
         });
 

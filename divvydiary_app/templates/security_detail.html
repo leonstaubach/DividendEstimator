@@ -1,22 +1,60 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% if security and security.chart %}
+<script type="application/json" id="security-chart-data">
+{
+    "labels": {{ security.chart.labels | tojson }},
+    "payDates": {{ security.chart.pay_dates | tojson }},
+    "historicalPerShare": {{ security.chart.historical_per_share | tojson }},
+    "forecastPerShare": {{ security.chart.forecast_per_share | tojson }},
+    "historicalTotal": {{ security.chart.historical_total | tojson }},
+    "forecastTotal": {{ security.chart.forecast_total | tojson }},
+    "currency": {{ security.chart.currency | tojson }}
+}
+</script>
+{% endif %}
+
 <div class="page-shell">
-    <section class="hero">
+    <section class="hero security-page-hero">
         <div class="hero-copy">
-            <span class="page-kicker">Security Deep Dive</span>
-            <div>
-                <h1>Security Details</h1>
-                <p>Inspect one holding in detail with its forecast profile, recent dividend history, and explanation links for each forecasted event.</p>
+            <span class="page-kicker">Security Insight</span>
+            <div class="section-copy">
+                <h1>{{ security.name if security else "Security Details" }}</h1>
+                <p>
+                    {% if security %}
+                        Track the next dividend, forecast confidence, and payout rhythm for this holding across recent history and the upcoming forecast horizon.
+                    {% else %}
+                        Inspect one holding in detail with its forecast profile, recent dividend history, and explanation links for each forecasted event.
+                    {% endif %}
+                </p>
             </div>
             {% if security %}
                 <div class="hero-meta">
                     <span class="meta-pill">{{ security.code }}</span>
                     <span class="meta-pill mono-meta">{{ security.isin }}</span>
+                    <span class="meta-pill"><span class="numeric">{{ format_quantity(security.quantity) }}</span> shares</span>
+                    <span class="meta-pill">{{ format_currency(security.position_value, security.currency) }}</span>
+                    {% if security.allocation is not none %}
+                        <span class="meta-pill"><span class="numeric">{{ "%.1f"|format(security.allocation) }}%</span> of portfolio</span>
+                    {% endif %}
+                    {% if security.dividend_frequency %}
+                        <span class="meta-pill">{{ security.dividend_frequency }}</span>
+                    {% endif %}
+                    {% if security.sector %}
+                        <span class="meta-pill">{{ security.sector }}</span>
+                    {% endif %}
                 </div>
             {% endif %}
         </div>
-        <div class="hero-actions">
+        <div class="hero-actions hero-actions-stack hero-actions-right">
+            {% if security and security.forecast_rows %}
+                <a
+                    href="/security/{{ security.isin }}/forecast/{{ security.forecast_rows[0].index }}"
+                    role="button"
+                    data-forecast-modal-url="/security/{{ security.isin }}/forecast/{{ security.forecast_rows[0].index }}/modal"
+                >Explain Next Forecast</a>
+            {% endif %}
             <a href="/" role="button" class="secondary">Back to Dashboard</a>
         </div>
     </section>
@@ -28,76 +66,162 @@
             </div>
         </article>
     {% elif security %}
-        <article class="section-card">
-            <header>
-                <div>
-                    <span class="eyebrow">Overview</span>
-                    <h2>{{ security.name }}</h2>
-                    <p>{{ security.isin }} · {{ security.code }}</p>
-                </div>
-            </header>
-            <div class="section-body">
-                <div class="detail-grid">
-                    <div class="detail-card">
-                        <strong>Next dividend</strong><br>
-                        {{ security.next_payment_date or "n/a" }}<br>
-                        {{ format_currency(security.next_payment_amount, security.currency, 4) }}
+        {% set next_forecast = security.forecast_rows[0] if security.forecast_rows else none %}
+        <section class="section-shell security-dashboard-shell">
+            <article class="section-card security-overview-card">
+                <div class="section-body security-overview-body">
+                    <div class="security-kpi-strip">
+                        <div class="security-kpi-card">
+                            <span class="security-kpi-label">Next pay date</span>
+                            <strong class="security-kpi-value numeric">{{ format_display_date(security.next_payment_date) }}</strong>
+                            <span class="security-kpi-note">Expected cash arrival</span>
+                        </div>
+                        <div class="security-kpi-card">
+                            <span class="security-kpi-label">Next ex-date</span>
+                            <strong class="security-kpi-value numeric">{{ format_display_date(security.next_ex_date) }}</strong>
+                            <span class="security-kpi-note">Eligibility cutoff</span>
+                        </div>
+                        <div class="security-kpi-card">
+                            <span class="security-kpi-label">Next payout</span>
+                            <strong class="security-kpi-value numeric">{{ format_currency(security.estimated_total_amount, security.currency) }}</strong>
+                            <span class="security-kpi-note">{{ format_currency(security.next_payment_amount, security.currency, 4) }} per share</span>
+                        </div>
+                        <div class="security-kpi-card">
+                            <span class="security-kpi-label">Estimated 12M total</span>
+                            <strong class="security-kpi-value numeric">{{ format_currency(security.estimated_annual_total_amount, security.currency) }}</strong>
+                            <span class="security-kpi-note">Across current forecast horizon</span>
+                        </div>
+                        <div class="security-kpi-card security-kpi-card-confidence">
+                            <span class="security-kpi-label">Forecast confidence</span>
+                            <strong class="security-kpi-value">{{ security.confidence | title }}</strong>
+                            <div class="confidence-bar-wrap">
+                                <div class="confidence-bar-track">
+                                    <div class="confidence-bar-fill" style="width: {{ (security.confidence_score * 100) | round | int }}%"></div>
+                                </div>
+                                <span class="confidence-score-label">{{ "%.0f"|format(security.confidence_score * 100) }}%</span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="detail-card">
-                        <strong>Confidence / Basis</strong><br>
-                        {{ security.confidence }}<br>
-                        {{ security.basis }}
-                    </div>
-                    <div class="detail-card">
-                        <strong>Ex date</strong><br>
-                        {{ security.next_ex_date or "n/a" }}
-                    </div>
-                    <div class="detail-card">
-                        <strong>Estimated total</strong><br>
-                        {{ format_currency(security.estimated_total_amount, security.currency) }}
-                    </div>
-                </div>
-            </div>
-        </article>
 
-        <section class="section-shell">
+                    <div class="security-insight-grid">
+                        <div class="detail-card security-chart-card">
+                            <div class="security-panel-header">
+                                <div>
+                                    <span class="eyebrow">Dividend Timeline</span>
+                                    <h2>Confirmed History vs Forecast Horizon</h2>
+                                    <p>Compare the recent payout pattern against the projected schedule for this position.</p>
+                                </div>
+                                <div class="security-chart-toolbar">
+                                    <div class="date-toggle compact" role="group" aria-label="Security chart display mode">
+                                        <button type="button" class="date-toggle-button" data-security-chart-mode="per_share">Per Share</button>
+                                        <button type="button" class="date-toggle-button" data-security-chart-mode="total">Position Total</button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% if security.chart %}
+                                <div class="security-chart-wrap">
+                                    <canvas id="security-detail-chart"></canvas>
+                                </div>
+                                <div class="forecast-exp-legend">
+                                    <span class="forecast-exp-legend-item forecast-exp-legend-historical">Confirmed history</span>
+                                    <span class="forecast-exp-legend-item forecast-exp-legend-forecast">Forecast horizon</span>
+                                </div>
+                            {% else %}
+                                <p class="empty-state">Not enough dividend data is available to chart this security yet.</p>
+                            {% endif %}
+                        </div>
+
+                        <div class="detail-card security-spotlight-card">
+                            <div class="security-panel-header">
+                                <div>
+                                    <span class="eyebrow">Spotlight</span>
+                                    <h2>Next Forecast</h2>
+                                    <p>The most actionable upcoming event for this holding.</p>
+                                </div>
+                            </div>
+                            {% if next_forecast %}
+                                <div class="security-spotlight-stack">
+                                    <div class="security-spotlight-amount">
+                                        <span class="security-spotlight-label">Position impact</span>
+                                        <span class="security-spotlight-value numeric">{{ format_currency(next_forecast.total_amount, next_forecast.currency) }}</span>
+                                        <span class="security-spotlight-note">{{ format_currency(next_forecast.amount_per_share, next_forecast.currency, 4) }} per share</span>
+                                    </div>
+                                    <div class="security-spotlight-meta">
+                                        <div>
+                                            <span class="forecast-exp-meta-label">Pay date</span>
+                                            <span class="forecast-exp-meta-value numeric">{{ format_display_date(next_forecast.pay_date) }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="forecast-exp-meta-label">Ex-date</span>
+                                            <span class="forecast-exp-meta-value numeric">{{ format_display_date(next_forecast.ex_date, include_weekday=False) }}</span>
+                                        </div>
+                                        {% if security.cadence_name %}
+                                            <div>
+                                                <span class="forecast-exp-meta-label">Cadence</span>
+                                                <span class="forecast-exp-meta-value">{{ security.cadence_name }}{% if security.cadence_days %} · {{ security.cadence_days }}d{% endif %}</span>
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            <span class="forecast-exp-meta-label">Method</span>
+                                            <span class="forecast-exp-meta-value">{{ security.basis_label }}</span>
+                                        </div>
+                                    </div>
+                                    <a
+                                        href="/security/{{ security.isin }}/forecast/{{ next_forecast.index }}"
+                                        role="button"
+                                        class="security-spotlight-action"
+                                        data-forecast-modal-url="/security/{{ security.isin }}/forecast/{{ next_forecast.index }}/modal"
+                                    >Open Forecast Explanation</a>
+                                </div>
+                            {% else %}
+                                <p class="empty-state">No forecast events are available for this holding yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </article>
+
             <article class="section-card">
                 <header>
                     <div>
-                        <span class="eyebrow">Forecast</span>
-                        <h2>Forecasted Dividends</h2>
-                        <p>Open any row’s explanation to see the reasoning behind the forecast.</p>
+                        <span class="eyebrow">Forecast Ladder</span>
+                        <h2>Upcoming Forecasted Dividends</h2>
+                        <p>Each card surfaces the projected cash impact and links straight to the reasoning behind it.</p>
                     </div>
                     <div class="header-actions">
-                        <span class="table-count">{{ security.forecast_rows|length }} rows</span>
+                        <span class="table-count">{{ security.forecast_rows|length }} forecast{{ "s" if security.forecast_rows|length != 1 else "" }}</span>
                     </div>
                 </header>
                 {% if security.forecast_rows %}
-                    <div class="table-scroll">
-                        <table class="sortable-table">
-                            <thead>
-                                <tr>
-                                    <th data-sortable data-sort-type="date">Ex Date</th>
-                                    <th data-sortable data-sort-type="date">Pay Date</th>
-                                    <th data-sortable data-sort-type="number">Per Share</th>
-                                    <th data-sortable data-sort-type="number">Total</th>
-                                    <th data-sortable data-sort-type="text">Currency</th>
-                                    <th>Explanation</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for row in security.forecast_rows %}
-                                    <tr>
-                                        <td data-sort-value="{{ row.ex_date }}">{{ row.ex_date }}</td>
-                                        <td data-sort-value="{{ row.pay_date }}">{{ row.pay_date }}</td>
-                                        <td data-sort-value="{{ row.amount_per_share if row.amount_per_share is not none else '' }}">{{ format_amount(row.amount_per_share, 4) }}</td>
-                                        <td data-sort-value="{{ row.total_amount if row.total_amount is not none else '' }}">{{ format_currency(row.total_amount, row.currency) }}</td>
-                                        <td data-sort-value="{{ row.currency or '' }}">{{ row.currency or "-" }}</td>
-                                        <td><a href="/security/{{ security.isin }}/forecast/{{ row.index }}" role="button" class="secondary outline" data-forecast-modal-url="/security/{{ security.isin }}/forecast/{{ row.index }}/modal">Explain</a></td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                    <div class="section-body">
+                        <div class="security-forecast-ladder">
+                            {% for row in security.forecast_rows %}
+                                <article class="security-forecast-card{% if loop.first %} is-primary{% endif %}">
+                                    <div class="security-forecast-card-header">
+                                        <span class="meta-pill">Forecast #{{ row.index }}</span>
+                                        <span class="security-forecast-card-date numeric">{{ format_display_date(row.pay_date, include_weekday=False) }}</span>
+                                    </div>
+                                    <div class="security-forecast-card-amount numeric">{{ format_currency(row.total_amount, row.currency) }}</div>
+                                    <p class="security-forecast-card-support">{{ format_currency(row.amount_per_share, row.currency, 4) }} per share</p>
+                                    <div class="security-forecast-card-meta">
+                                        <div>
+                                            <span class="forecast-exp-meta-label">Pay date</span>
+                                            <span class="forecast-exp-meta-value numeric">{{ format_display_date(row.pay_date) }}</span>
+                                        </div>
+                                        <div>
+                                            <span class="forecast-exp-meta-label">Ex-date</span>
+                                            <span class="forecast-exp-meta-value numeric">{{ format_display_date(row.ex_date, include_weekday=False) }}</span>
+                                        </div>
+                                    </div>
+                                    <a
+                                        href="/security/{{ security.isin }}/forecast/{{ row.index }}"
+                                        role="button"
+                                        class="secondary outline"
+                                        data-forecast-modal-url="/security/{{ security.isin }}/forecast/{{ row.index }}/modal"
+                                    >Explain</a>
+                                </article>
+                            {% endfor %}
+                        </div>
                     </div>
                 {% else %}
                     <div class="section-body">
@@ -110,15 +234,15 @@
                 <header>
                     <div>
                         <span class="eyebrow">History</span>
-                        <h2>Historical Dividends</h2>
-                        <p>The recent confirmed dividend timeline for this security.</p>
+                        <h2>Recent Confirmed Dividends</h2>
+                        <p>The recent confirmed payout record stays available below the visual summary for verification and comparison.</p>
                     </div>
                     <div class="header-actions">
                         <span class="table-count">{{ security.recent_history_rows|length }} rows</span>
                     </div>
                 </header>
                 {% if security.recent_history_rows %}
-                    <div class="table-scroll">
+                    <div class="table-scroll table-scroll-compact">
                         <table class="sortable-table">
                             <thead>
                                 <tr>

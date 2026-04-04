@@ -4,7 +4,13 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from .estimator import ForecastExplanation
-from .models import DividendEvent, EstimatedSecurityDividendHistory, ResolvedPortfolio, Security
+from .models import (
+    DividendEvent,
+    EstimatedSecurityDividendHistory,
+    ForecastDividendEvent,
+    ResolvedPortfolio,
+    Security,
+)
 
 
 @dataclass(frozen=True)
@@ -61,6 +67,17 @@ class SecurityHistoryRow:
     pay_date: str
     ex_date: str
     amount: float | None
+    currency: str | None
+
+
+@dataclass(frozen=True)
+class SecurityChartView:
+    labels: list[str]
+    pay_dates: list[str]
+    historical_per_share: list[float | None]
+    forecast_per_share: list[float | None]
+    historical_total: list[float | None]
+    forecast_total: list[float | None]
     currency: str | None
 
 
@@ -124,14 +141,26 @@ class SecurityDetailView:
     isin: str
     code: str
     currency: str | None
+    quantity: float
+    position_value: float
+    allocation: float | None
+    dividend_yield: float | None
+    dividend_frequency: str | None
+    sector: str | None
     next_ex_date: str | None
     next_payment_date: str | None
     next_payment_amount: float | None
     estimated_total_amount: float | None
+    estimated_annual_total_amount: float | None
     confidence: str
+    confidence_score: float
     basis: str
+    basis_label: str
+    cadence_name: str | None
+    cadence_days: int | None
     forecast_rows: list[SecurityForecastRow]
     recent_history_rows: list[SecurityHistoryRow]
+    chart: SecurityChartView | None
 
 
 @dataclass(frozen=True)
@@ -178,7 +207,10 @@ def build_dashboard_view(
         total_value=total_value,
         holdings=build_holding_rows(sorted_histories, total_value, selected_history),
         monthly_summaries=build_monthly_summary_views(sorted_histories, reference_date),
-        selected_security=build_security_detail_view(selected_history) if selected_history is not None else None,
+        selected_security=(
+            build_security_detail_view(selected_history, total_portfolio_value=total_value)
+            if selected_history is not None else None
+        ),
     )
 
 
@@ -256,38 +288,68 @@ def build_monthly_timeline_view(
     )
 
 
-def build_security_detail_view(history: EstimatedSecurityDividendHistory) -> SecurityDetailView:
+def build_security_detail_view(
+    history: EstimatedSecurityDividendHistory,
+    total_portfolio_value: float | None = None,
+    explanation: ForecastExplanation | None = None,
+) -> SecurityDetailView:
+    forecast_rows = [
+        SecurityForecastRow(
+            index=index,
+            ex_date=event.ex_date or "-",
+            pay_date=event.pay_date or "-",
+            amount_per_share=event.amount,
+            total_amount=event_total_amount(event.amount, history.security.quantity),
+            currency=event.currency or history.security.currency,
+        )
+        for index, event in enumerate(security_forecast_events(history), start=1)
+    ]
+    recent_history_rows = [
+        SecurityHistoryRow(
+            pay_date=event.pay_date or "-",
+            ex_date=event.ex_date or "-",
+            amount=event.amount,
+            currency=event.currency or history.security.currency,
+        )
+        for event in latest_historical_dividends(history)
+    ]
+    position_value = security_value(history.security)
+
     return SecurityDetailView(
         name=history.security.name,
         isin=history.security.isin,
         code=security_code(history.security),
         currency=history.security.currency,
+        quantity=history.security.quantity,
+        position_value=position_value,
+        allocation=(
+            portfolio_percentage(position_value, total_portfolio_value)
+            if total_portfolio_value is not None
+            else None
+        ),
+        dividend_yield=history.security.dividend_yield,
+        dividend_frequency=format_frequency_label(history.security.dividend_frequency),
+        sector=history.security.sector,
         next_ex_date=history.estimate.next_ex_date,
         next_payment_date=history.estimate.next_payment_date,
         next_payment_amount=history.estimate.next_payment_amount,
         estimated_total_amount=estimate_total_amount(history),
+        estimated_annual_total_amount=estimate_annual_total_amount(history),
         confidence=history.estimate.confidence,
+        confidence_score=(
+            explanation.confidence_score if explanation is not None else confidence_score_from_label(history.estimate.confidence)
+        ),
         basis=history.estimate.basis,
-        forecast_rows=[
-            SecurityForecastRow(
-                index=index,
-                ex_date=event.ex_date or "-",
-                pay_date=event.pay_date or "-",
-                amount_per_share=event.amount,
-                total_amount=event_total_amount(event.amount, history.security.quantity),
-                currency=event.currency or history.security.currency,
-            )
-            for index, event in enumerate(history.estimate.forecast_events, start=1)
-        ],
-        recent_history_rows=[
-            SecurityHistoryRow(
-                pay_date=event.pay_date or "-",
-                ex_date=event.ex_date or "-",
-                amount=event.amount,
-                currency=event.currency or history.security.currency,
-            )
-            for event in latest_historical_dividends(history)
-        ],
+        basis_label=describe_estimate_basis(history.estimate.basis),
+        cadence_name=(
+            explanation.cadence.name.title()
+            if explanation is not None
+            else format_frequency_label(history.security.dividend_frequency)
+        ),
+        cadence_days=explanation.cadence.median_gap_days if explanation is not None else None,
+        forecast_rows=forecast_rows,
+        recent_history_rows=recent_history_rows,
+        chart=build_security_chart_view(history),
     )
 
 
@@ -650,10 +712,80 @@ def estimate_total_amount(history: EstimatedSecurityDividendHistory) -> float | 
     return event_total_amount(history.estimate.next_payment_amount, history.security.quantity)
 
 
+def estimate_annual_total_amount(history: EstimatedSecurityDividendHistory) -> float | None:
+    totals = [
+        event_total_amount(event.amount, history.security.quantity)
+        for event in security_forecast_events(history)
+        if event.amount is not None
+    ]
+    if totals:
+        return sum(totals)
+    return estimate_total_amount(history)
+
+
 def event_total_amount(amount: float | None, quantity: float) -> float | None:
     if amount is None:
         return None
     return amount * quantity
+
+
+def security_forecast_events(
+    history: EstimatedSecurityDividendHistory,
+) -> list[ForecastDividendEvent]:
+    if history.estimate.forecast_events:
+        return history.estimate.forecast_events
+    if history.estimate.next_payment_date is None:
+        return []
+    return [
+        ForecastDividendEvent(
+            ex_date=history.estimate.next_ex_date,
+            pay_date=history.estimate.next_payment_date,
+            amount=history.estimate.next_payment_amount,
+            currency=history.security.currency,
+        )
+    ]
+
+
+def build_security_chart_view(history: EstimatedSecurityDividendHistory) -> SecurityChartView | None:
+    confirmed_events = latest_historical_dividends(history)[-12:]
+    forecast_events = security_forecast_events(history)
+    if not confirmed_events and not forecast_events:
+        return None
+
+    labels: list[str] = []
+    pay_dates: list[str] = []
+    historical_per_share: list[float | None] = []
+    forecast_per_share: list[float | None] = []
+    historical_total: list[float | None] = []
+    forecast_total: list[float | None] = []
+
+    for event in confirmed_events:
+        pay_date = event.pay_date or event.ex_date or "-"
+        labels.append(chart_axis_label(pay_date))
+        pay_dates.append(pay_date)
+        historical_per_share.append(event.amount)
+        forecast_per_share.append(None)
+        historical_total.append(event_total_amount(event.amount, history.security.quantity))
+        forecast_total.append(None)
+
+    for event in forecast_events:
+        pay_date = event.pay_date or event.ex_date or "-"
+        labels.append(chart_axis_label(pay_date))
+        pay_dates.append(pay_date)
+        historical_per_share.append(None)
+        forecast_per_share.append(event.amount)
+        historical_total.append(None)
+        forecast_total.append(event_total_amount(event.amount, history.security.quantity))
+
+    return SecurityChartView(
+        labels=labels,
+        pay_dates=pay_dates,
+        historical_per_share=historical_per_share,
+        forecast_per_share=forecast_per_share,
+        historical_total=historical_total,
+        forecast_total=forecast_total,
+        currency=history.security.currency,
+    )
 
 
 def sum_total_amount(rows: list[MonthlyDividendRow]) -> float | None:
@@ -699,6 +831,51 @@ def format_amount(amount: float | None, decimals: int = 2) -> str:
     if amount is None:
         return "n/a"
     return f"{amount:,.{decimals}f}"
+
+
+def confidence_score_from_label(confidence: str | None) -> float:
+    mapping = {
+        "low": 0.35,
+        "medium": 0.62,
+        "high": 0.84,
+    }
+    if confidence is None:
+        return 0.0
+    return mapping.get(confidence.lower(), 0.0)
+
+
+def format_frequency_label(frequency: str | None) -> str | None:
+    if not frequency:
+        return None
+    return frequency.replace("_", " ").title()
+
+
+def describe_estimate_basis(basis: str | None) -> str:
+    if not basis:
+        return "Forecast estimate"
+
+    cadence_prefixes = {"monthly", "quarterly", "semiannual", "annual"}
+    parts = basis.split("_", 1)
+    if len(parts) == 2 and parts[0] in cadence_prefixes:
+        key = parts[1]
+    else:
+        key = basis
+
+    mapping = {
+        "trend": "Trend blend",
+        "same_season": "Seasonal match",
+        "last_payment_fallback": "Last payment fallback",
+        "insufficient_history": "Insufficient history",
+        "irregular_history": "Irregular history",
+    }
+    return mapping.get(key, key.replace("_", " ").title())
+
+
+def chart_axis_label(iso_date: str | None) -> str:
+    if not iso_date or iso_date == "-":
+        return "n/a"
+    parsed = date.fromisoformat(iso_date)
+    return parsed.strftime("%b %Y")
 
 
 def truncate(value: str, width: int) -> str:

@@ -15,6 +15,7 @@ from .presentation import (
     build_forecast_explanation_view,
     build_monthly_timeline_view,
     build_security_detail_view,
+    calculate_total_value,
     format_amount,
     format_currency,
     format_display_date,
@@ -55,7 +56,11 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
         if explanation is None:
             raise HTTPException(status_code=404, detail="Forecast explanation unavailable")
 
-        security_view = build_security_detail_view(selected_history)
+        security_view = build_security_detail_view(
+            selected_history,
+            total_portfolio_value=calculate_total_value(estimated_histories),
+            explanation=active_runtime.service.explain_forecast(selected_history, steps_ahead=1),
+        )
         explanation_view = build_forecast_explanation_view(selected_history, explanation)
         return resolved_portfolio, security_view, explanation_view
 
@@ -146,7 +151,11 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
         selected_history = next((history for history in estimated_histories if history.security.isin == isin), None)
         if selected_history is None:
             raise HTTPException(status_code=404, detail="Security not found")
-        security_view = build_security_detail_view(selected_history)
+        security_view = build_security_detail_view(
+            selected_history,
+            total_portfolio_value=calculate_total_value(estimated_histories),
+            explanation=active_runtime.service.explain_forecast(selected_history, steps_ahead=1),
+        )
         return templates.TemplateResponse(
             request,
             "security_detail.html",

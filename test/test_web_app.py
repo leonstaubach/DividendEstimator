@@ -12,12 +12,17 @@ from divvydiary_app.models import (
     DividendEvent,
     DividendEstimate,
     EstimatedSecurityDividendHistory,
+    ForecastDividendEvent,
     Portfolio,
     ResolvedPortfolio,
     Security,
     UserProfile,
 )
-from divvydiary_app.presentation import build_dashboard_view, build_monthly_timeline_view
+from divvydiary_app.presentation import (
+    build_dashboard_view,
+    build_monthly_timeline_view,
+    build_security_detail_view,
+)
 from divvydiary_app.service import PortfolioService
 
 try:
@@ -154,6 +159,42 @@ class PresentationParityTests(unittest.TestCase):
         self.assertEqual(monthly_view.month_sections[1].caption, "May 2026")
         self.assertEqual(monthly_view.month_sections[1].estimated_rows[0].pay_date, "2026-05-20")
 
+    def test_security_detail_view_includes_dashboard_metadata_and_chart(self) -> None:
+        alpha = self.make_security("AAA111", "Alpha Income", 100.0)
+        alpha.quantity = 5.0
+        alpha.dividend_frequency = "monthly"
+        alpha.sector = "Utilities"
+        histories = EstimatedSecurityDividendHistory(
+            security=alpha,
+            dividends=[
+                DividendEvent(1, "2026-03-01", "2026-03-15", 0.45, "USD", False),
+                DividendEvent(2, "2026-04-01", "2026-04-15", 0.50, "USD", False),
+            ],
+            estimate=DividendEstimate(
+                next_ex_date="2026-05-05",
+                next_payment_date="2026-05-20",
+                next_payment_amount=0.55,
+                confidence="high",
+                basis="monthly_trend",
+                forecast_events=[
+                    ForecastDividendEvent("2026-05-05", "2026-05-20", 0.55, "USD"),
+                    ForecastDividendEvent("2026-06-05", "2026-06-20", 0.60, "USD"),
+                ],
+            ),
+        )
+
+        detail = build_security_detail_view(histories, total_portfolio_value=500.0)
+
+        self.assertEqual(detail.quantity, 5.0)
+        self.assertAlmostEqual(detail.position_value, 100.0)
+        self.assertAlmostEqual(detail.allocation or 0.0, 20.0)
+        self.assertEqual(detail.dividend_frequency, "Monthly")
+        self.assertEqual(detail.sector, "Utilities")
+        self.assertEqual(detail.estimated_annual_total_amount, 5.75)
+        self.assertEqual(detail.basis_label, "Trend blend")
+        self.assertIsNotNone(detail.chart)
+        self.assertEqual(detail.chart.labels[-1], "Jun 2026")
+
 
 @unittest.skipUnless(FASTAPI_AVAILABLE, "FastAPI is not installed in this interpreter")
 class FastAPIAppTests(unittest.TestCase):
@@ -271,11 +312,13 @@ class FastAPIAppTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         body = response.body.decode("utf-8")
-        self.assertIn("Security Details", body)
+        self.assertIn("Security Insight", body)
         self.assertIn("Alpha Income", body)
-        self.assertIn("Forecasted Dividends", body)
-        self.assertIn("Historical Dividends", body)
-        self.assertIn("Explain", body)
+        self.assertIn("Dividend Timeline", body)
+        self.assertIn("Upcoming Forecasted Dividends", body)
+        self.assertIn("Recent Confirmed Dividends", body)
+        self.assertIn("Explain Next Forecast", body)
+        self.assertIn("security-detail-chart", body)
 
     def test_forecast_explanation_page_renders_reasoning_sections(self) -> None:
         route = self.get_route("/security/{isin}/forecast/{forecast_index}", "GET")
