@@ -12,9 +12,18 @@
         </div>
         <div class="hero-actions hero-actions-right hero-actions-stack">
             {% if monthly_view %}
-                <div class="date-toggle compact" role="group" aria-label="Compact date display mode" data-month-date-mode="pay">
-                    <button type="button" class="date-toggle-button" data-date-toggle-mode="pay">Pay Date</button>
-                    <button type="button" class="date-toggle-button" data-date-toggle-mode="ex">Ex-Date</button>
+                <div class="date-toggle-group">
+                    <span class="date-toggle-label">
+                        Primary Date
+                        <span class="info-btn" aria-label="Choose which date should be used to be shown on the primary dividend card">
+                            &#x24D8;
+                            <span class="info-tooltip">Choose which date should be used to be shown on the primary dividend card</span>
+                        </span>
+                    </span>
+                    <div class="date-toggle compact" role="group" aria-label="Compact date display mode" data-month-date-mode="pay">
+                        <button type="button" class="date-toggle-button" data-date-toggle-mode="pay">Pay Date</button>
+                        <button type="button" class="date-toggle-button" data-date-toggle-mode="ex">Ex-Date</button>
+                    </div>
                 </div>
             {% endif %}
             <a href="/" role="button" class="secondary">Back to Dashboard</a>
