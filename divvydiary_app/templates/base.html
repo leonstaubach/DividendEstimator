@@ -1656,13 +1656,6 @@
             font-size: 0.84rem;
         }
 
-        .security-insight-grid {
-            display: grid;
-            grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
-            gap: 1rem;
-            align-items: stretch;
-        }
-
         .security-panel-header {
             display: flex;
             align-items: flex-start;
@@ -1690,56 +1683,6 @@
         .security-chart-wrap {
             position: relative;
             min-height: 320px;
-        }
-
-        .security-spotlight-card {
-            display: grid;
-            align-content: start;
-        }
-
-        .security-spotlight-stack {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .security-spotlight-amount {
-            display: grid;
-            gap: 0.22rem;
-            padding: 1.05rem 1.1rem;
-            border: 1px solid color-mix(in srgb, var(--pico-primary) 24%, var(--app-border));
-            border-radius: 1rem;
-            background: linear-gradient(160deg, color-mix(in srgb, var(--pico-primary) 14%, var(--app-surface-strong)) 0%, var(--app-surface) 100%);
-        }
-
-        .security-spotlight-label {
-            color: var(--pico-muted-color);
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        .security-spotlight-value {
-            color: var(--app-heading);
-            font-size: 2rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .security-spotlight-note {
-            color: var(--app-subtle);
-            font-size: 0.92rem;
-            font-weight: 600;
-        }
-
-        .security-spotlight-meta {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.85rem;
-        }
-
-        .security-spotlight-action {
-            justify-self: start;
         }
 
         .security-forecast-ladder {
@@ -1791,12 +1734,6 @@
             font-weight: 600;
         }
 
-        .security-forecast-card-meta {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.8rem;
-        }
-
         @media (max-width: 960px) {
             .topbar {
                 flex-direction: column;
@@ -1816,10 +1753,7 @@
             .dashboard-grid,
             .detail-grid,
             .dividend-card-meta,
-            .modal-detail-grid,
-            .security-insight-grid,
-            .security-spotlight-meta,
-            .security-forecast-card-meta {
+            .modal-detail-grid {
                 grid-template-columns: 1fr;
             }
 
