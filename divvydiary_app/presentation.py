@@ -26,6 +26,7 @@ class MonthlyDividendRow:
     currency: str | None
     is_estimated: bool
     forecast_index: int | None
+    is_paid: bool
 
 
 @dataclass(frozen=True)
@@ -487,6 +488,7 @@ def monthly_dividend_rows(
                 currency=event.currency or history.security.currency,
                 is_estimated=event.forecast,
                 forecast_index=None,
+                is_paid=event.pay_date <= date.today().isoformat(),
             )
             rows.append(row)
             seen_keys.add((event.pay_date, event.amount))
@@ -544,6 +546,7 @@ def estimated_monthly_dividend_rows(
                 currency=event.currency or history.security.currency,
                 is_estimated=True,
                 forecast_index=forecast_index if history.estimate.forecast_events else None,
+                is_paid=False,
             )
         )
 

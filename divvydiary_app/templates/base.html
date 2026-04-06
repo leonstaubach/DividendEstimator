@@ -722,6 +722,35 @@
             color: #fdba74;
         }
 
+        .status-card-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.35rem;
+            height: 1.35rem;
+            padding: 0 0.45rem;
+            border-radius: 0.45rem;
+            font-size: 0.78rem;
+            font-weight: 700;
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+
+        .status-card-badge-label {
+            text-underline-offset: 0.14em;
+            text-decoration-thickness: 1.5px;
+        }
+
+        .status-card-badge.is-paid {
+            background: color-mix(in srgb, #22c55e 16%, transparent);
+            color: #22c55e;
+        }
+
+        .status-card-badge.is-confirmed {
+            background: color-mix(in srgb, #38bdf8 16%, transparent);
+            color: #38bdf8;
+        }
+
         .dividend-card-amount {
             color: var(--app-heading);
             font-size: 1.55rem;

@@ -75,7 +75,13 @@
                                         <details class="dividend-card payment-card">
                                             <summary class="payment-card-summary">
                                                 <div class="payment-card-summary-top">
-                                                    <span class="payment-card-accessory payment-card-accessory-left" aria-hidden="true"></span>
+                                                    <span class="payment-card-accessory payment-card-accessory-left">
+                                        {% if row.is_paid %}
+                                            <span class="status-card-badge is-paid">✓ <span class="status-card-badge-label">Paid</span></span>
+                                        {% else %}
+                                            <span class="status-card-badge is-confirmed">◆ <span class="status-card-badge-label">Confirmed</span></span>
+                                        {% endif %}
+                                    </span>
                                                     <div class="dividend-card-title">
                                                         <h3>{{ row.security_name }} ({{ row.security_code }})</h3>
                                                         <p class="numeric">{{ format_currency(row.total_amount, row.currency) }}</p>
