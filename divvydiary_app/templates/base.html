@@ -1128,6 +1128,36 @@
             padding: 0.35rem 0 0.2rem;
         }
 
+        .data-loading-state {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 2rem;
+        }
+
+        .loading-card {
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .loading-card .section-body {
+            padding: 2.5rem 2rem;
+        }
+
+        .loading-card [aria-busy="true"] {
+            color: var(--pico-primary);
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .loading-subtitle {
+            color: var(--pico-muted-color);
+            font-size: 0.9rem;
+            margin-bottom: 0;
+        }
+
         .forecast-notice-list {
             display: flex;
             flex-direction: column;
@@ -2187,6 +2217,20 @@
                     window.location.href = "/";
                 }
             });
+        }
+
+        const dataLoadingState = document.getElementById("data-loading-state");
+        if (dataLoadingState) {
+            (async function () {
+                try {
+                    const response = await fetch("/actions/fetch-data", { method: "POST" });
+                    if (!response.ok) throw new Error("fetch-data returned " + response.status);
+                } catch (err) {
+                    console.error("Background data fetch failed:", err);
+                } finally {
+                    window.location.reload();
+                }
+            }());
         }
 
         forecastModal?.addEventListener("click", (event) => {

@@ -51,6 +51,9 @@ class PortfolioService:
         resolved_portfolio = self.get_resolved_portfolio()
         return resolved_portfolio, self.build_estimated_security_dividend_histories(resolved_portfolio)
 
+    def is_data_cached(self) -> bool:
+        return self.client.is_portfolio_cached()
+
     def clear_cache(self) -> None:
         self.client.clear_cache()
 

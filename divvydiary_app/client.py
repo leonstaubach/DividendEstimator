@@ -66,6 +66,11 @@ class DivvyDiaryClient:
             fetch_func=lambda: self.get_json(f"/symbols/{isin}").get("dividends", []),
         )
 
+    def is_portfolio_cached(self) -> bool:
+        if self.cache is None:
+            return True  # no-cache deployments: always fetch inline, never show loading state
+        return self.cache.is_fresh(self._portfolio_cache_key())
+
     def clear_cache(self) -> None:
         if self.cache is not None:
             self.cache.clear()

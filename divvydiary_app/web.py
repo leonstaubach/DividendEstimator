@@ -4,7 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .bootstrap import AppRuntime, build_runtime
@@ -81,8 +81,23 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
                     "selected_security": None,
                     "error_message": "Please set DIVVYDIARY_API_KEY in the .env file before starting the web app.",
                     "dashboard": None,
+                    "is_loading": False,
                 },
                 status_code=500,
+            )
+
+        if not active_runtime.service.is_data_cached():
+            return templates.TemplateResponse(
+                request,
+                "dashboard.html",
+                {
+                    "request": request,
+                    "active_page": "dashboard",
+                    "selected_security": None,
+                    "dashboard": None,
+                    "is_loading": True,
+                    "error_message": None,
+                },
             )
 
         resolved_portfolio, estimated_histories = active_runtime.service.load_portfolio_data()
@@ -95,6 +110,7 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
                 "active_page": "dashboard",
                 "selected_security": None,
                 "dashboard": dashboard_view,
+                "is_loading": False,
                 "error_message": None,
             },
         )
@@ -112,8 +128,23 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
                     "selected_security": None,
                     "error_message": "Please set DIVVYDIARY_API_KEY in the .env file before starting the web app.",
                     "monthly_view": None,
+                    "is_loading": False,
                 },
                 status_code=500,
+            )
+
+        if not active_runtime.service.is_data_cached():
+            return templates.TemplateResponse(
+                request,
+                "monthly.html",
+                {
+                    "request": request,
+                    "active_page": "monthly",
+                    "selected_security": None,
+                    "monthly_view": None,
+                    "is_loading": True,
+                    "error_message": None,
+                },
             )
 
         resolved_portfolio, estimated_histories = active_runtime.service.load_portfolio_data()
@@ -126,6 +157,7 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
                 "active_page": "monthly",
                 "selected_security": None,
                 "monthly_view": monthly_timeline,
+                "is_loading": False,
                 "error_message": None,
             },
         )
@@ -143,8 +175,23 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
                     "selected_security": None,
                     "error_message": "Please set DIVVYDIARY_API_KEY in the .env file before starting the web app.",
                     "security": None,
+                    "is_loading": False,
                 },
                 status_code=500,
+            )
+
+        if not active_runtime.service.is_data_cached():
+            return templates.TemplateResponse(
+                request,
+                "security_detail.html",
+                {
+                    "request": request,
+                    "active_page": "security",
+                    "selected_security": None,
+                    "security": None,
+                    "is_loading": True,
+                    "error_message": None,
+                },
             )
 
         resolved_portfolio, estimated_histories = active_runtime.service.load_portfolio_data()
@@ -165,6 +212,7 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
                 "selected_security": security_view,
                 "security": security_view,
                 "portfolio_name": resolved_portfolio.portfolio.name,
+                "is_loading": False,
                 "error_message": None,
             },
         )
@@ -182,9 +230,25 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
                     "selected_security": None,
                     "security": None,
                     "explanation": None,
+                    "is_loading": False,
                     "error_message": "Please set DIVVYDIARY_API_KEY in the .env file before starting the web app.",
                 },
                 status_code=500,
+            )
+
+        if not active_runtime.service.is_data_cached():
+            return templates.TemplateResponse(
+                request,
+                "forecast_explanation.html",
+                {
+                    "request": request,
+                    "active_page": "security",
+                    "selected_security": None,
+                    "security": None,
+                    "explanation": None,
+                    "is_loading": True,
+                    "error_message": None,
+                },
             )
 
         resolved_portfolio, security_view, explanation_view = load_forecast_explanation_context(
@@ -202,6 +266,7 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
                 "security": security_view,
                 "explanation": explanation_view,
                 "portfolio_name": resolved_portfolio.portfolio.name,
+                "is_loading": False,
                 "error_message": None,
             },
         )
@@ -235,6 +300,13 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
         logger.info("Clearing cached portfolio data from web action.")
         active_runtime.service.clear_cache()
         return RedirectResponse(url="/", status_code=303)
+
+    @app.post("/actions/fetch-data")
+    async def fetch_data() -> JSONResponse:
+        active_runtime = runtime or get_runtime()
+        logger.info("Background fetch triggered from loading state.")
+        active_runtime.service.load_portfolio_data()
+        return JSONResponse({"status": "ok"})
 
     return app
 

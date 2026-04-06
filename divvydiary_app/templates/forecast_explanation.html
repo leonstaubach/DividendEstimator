@@ -27,6 +27,15 @@
                 <p>{{ error_message }}</p>
             </div>
         </article>
+    {% elif is_loading %}
+        <div id="data-loading-state" class="data-loading-state">
+            <article class="section-card loading-card">
+                <div class="section-body">
+                    <p aria-busy="true">Fetching data…</p>
+                    <p class="loading-subtitle">This may take a moment on first load.</p>
+                </div>
+            </article>
+        </div>
     {% elif explanation and security %}
         <article class="section-card">
             <header>

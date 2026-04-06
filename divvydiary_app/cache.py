@@ -34,6 +34,16 @@ class FileCache:
         }
         self._write_payload(payload)
 
+    def is_fresh(self, key: str) -> bool:
+        payload = self._load_payload()
+        cached_entry = payload.get("entries", {}).get(key)
+        if cached_entry is None:
+            return False
+        stored_at = self._parse_timestamp(cached_entry.get("stored_at"))
+        if stored_at is None or self._is_expired(stored_at):
+            return False
+        return True
+
     def clear(self) -> None:
         if self.cache_file.exists():
             self.cache_file.unlink()
