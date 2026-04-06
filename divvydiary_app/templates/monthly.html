@@ -48,7 +48,7 @@
     {% elif monthly_view %}
         <section class="month-grid">
             {% for month in monthly_view.month_sections %}
-                <details class="month-accordion" {% if loop.first or month.is_current_month %}open{% endif %}>
+                <details class="month-accordion" {% if month.is_current_month %}open{% endif %}>
                     <summary class="month-summary">
                         <div class="month-summary-title">
                             <h2>{{ month.caption }}</h2>
