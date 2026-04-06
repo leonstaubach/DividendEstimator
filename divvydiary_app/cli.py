@@ -176,7 +176,7 @@ def print_monthly_row(row: MonthlyDividendRow) -> None:
         f"{truncate(row.security_code, 10):<10} "
         f"{format_currency(row.amount_per_share, row.currency):>14} "
         f"{format_currency(row.total_amount, row.currency):>14} "
-        f"{'yes' if row.is_estimated else 'no':<6}",
+        f"{row.status.value:<10}",
     )
 
 

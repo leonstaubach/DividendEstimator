@@ -76,7 +76,7 @@
                                             <summary class="payment-card-summary">
                                                 <div class="payment-card-summary-top">
                                                     <span class="payment-card-accessory payment-card-accessory-left">
-                                        {% if row.is_paid %}
+                                        {% if row.status.value == 'paid' %}
                                             <span class="status-card-badge is-paid">✓ <span class="status-card-badge-label">Paid</span></span>
                                         {% else %}
                                             <span class="status-card-badge is-confirmed">◆ <span class="status-card-badge-label">Confirmed</span></span>

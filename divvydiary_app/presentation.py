@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, timedelta
+from enum import Enum
 
 from .estimator import ForecastExplanation
 from .models import (
@@ -11,6 +12,12 @@ from .models import (
     ResolvedPortfolio,
     Security,
 )
+
+
+class DividendStatus(Enum):
+    PAID = "paid"
+    CONFIRMED = "confirmed"
+    FORECAST = "forecast"
 
 
 @dataclass(frozen=True)
@@ -24,9 +31,8 @@ class MonthlyDividendRow:
     amount_per_share: float | None
     total_amount: float | None
     currency: str | None
-    is_estimated: bool
+    status: DividendStatus
     forecast_index: int | None
-    is_paid: bool
 
 
 @dataclass(frozen=True)
@@ -265,8 +271,8 @@ def build_monthly_timeline_view(
 
     for month_date in monthly_timeline_range(current_month, forward_months):
         rows = monthly_dividend_rows(histories, month_date, include_all_forecasts=True)
-        confirmed_rows = [row for row in rows if not row.is_estimated]
-        estimated_rows = [row for row in rows if row.is_estimated]
+        confirmed_rows = [row for row in rows if row.status != DividendStatus.FORECAST]
+        estimated_rows = [row for row in rows if row.status == DividendStatus.FORECAST]
         month_sections.append(
             MonthlyTimelineSection(
                 caption=month_date.strftime("%B %Y"),
@@ -486,9 +492,10 @@ def monthly_dividend_rows(
                 amount_per_share=event.amount,
                 total_amount=event_total_amount(event.amount, history.security.quantity),
                 currency=event.currency or history.security.currency,
-                is_estimated=event.forecast,
+                status=DividendStatus.FORECAST if event.forecast else (
+                    DividendStatus.PAID if event.pay_date <= date.today().isoformat() else DividendStatus.CONFIRMED
+                ),
                 forecast_index=None,
-                is_paid=event.pay_date <= date.today().isoformat(),
             )
             rows.append(row)
             seen_keys.add((event.pay_date, event.amount))
@@ -544,9 +551,8 @@ def estimated_monthly_dividend_rows(
                 amount_per_share=event.amount,
                 total_amount=event_total_amount(event.amount, history.security.quantity),
                 currency=event.currency or history.security.currency,
-                is_estimated=True,
+                status=DividendStatus.FORECAST,
                 forecast_index=forecast_index if history.estimate.forecast_events else None,
-                is_paid=False,
             )
         )
 

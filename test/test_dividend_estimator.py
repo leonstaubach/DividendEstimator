@@ -519,10 +519,10 @@ class CliHelpersTests(unittest.TestCase):
         self.assertEqual(len(april_rows), 1)
         self.assertEqual(april_rows[0].pay_date, "2026-04-18")
         self.assertEqual(april_rows[0].ex_date, "-")
-        self.assertFalse(april_rows[0].is_estimated)
+        self.assertNotEqual(april_rows[0].status.value, "forecast")
         self.assertEqual(april_rows[0].total_amount, 2.25)
         self.assertEqual(len(may_rows), 1)
-        self.assertTrue(may_rows[0].is_estimated)
+        self.assertEqual(may_rows[0].status.value, "forecast")
         self.assertEqual(may_rows[0].ex_date, "2026-05-05")
         self.assertEqual(may_rows[0].amount_per_share, 0.50)
         self.assertEqual(may_rows[0].total_amount, 2.50)
@@ -548,7 +548,7 @@ class CliHelpersTests(unittest.TestCase):
         may_rows = monthly_dividend_rows([history], date(2026, 5, 1))
 
         self.assertEqual(len(may_rows), 1)
-        self.assertTrue(may_rows[0].is_estimated)
+        self.assertEqual(may_rows[0].status.value, "forecast")
 
     def test_load_portfolio_data_returns_sorted_histories(self) -> None:
         lower_value_security = self.make_security("AAA111", "Alpha", 100.0)
