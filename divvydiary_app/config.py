@@ -32,7 +32,7 @@ class AppConfig:
     log_level: str = "DEBUG"
     base_url: str = "https://api.divvydiary.com"
     cache_file: Path = Path(".cache/divvydiary_cache.json")
-    cache_ttl_seconds: int = 3600
+    cache_ttl_seconds: int = 86400
 
     @classmethod
     def from_env(cls, env_file: Path | None = None) -> "AppConfig":
@@ -45,5 +45,5 @@ class AppConfig:
             portfolio_id=os.getenv("DIVVYDIARY_PORTFOLIO_ID", ""),
             log_level=os.getenv("DIVVYDIARY_LOG_LEVEL", "DEBUG"),
             cache_file=Path(cache_file) if cache_file else env_path.parent / ".cache" / "divvydiary_cache.json",
-            cache_ttl_seconds=int(os.getenv("DIVVYDIARY_CACHE_TTL_SECONDS", "3600")),
+            cache_ttl_seconds=int(os.getenv("DIVVYDIARY_CACHE_TTL_SECONDS", "86400")),
         )

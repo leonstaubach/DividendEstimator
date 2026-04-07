@@ -7,7 +7,7 @@ from typing import Any
 
 
 class FileCache:
-    def __init__(self, cache_file: Path, ttl_seconds: int = 3600) -> None:
+    def __init__(self, cache_file: Path, ttl_seconds: int = 86400) -> None:
         self.cache_file = cache_file
         self.ttl = timedelta(seconds=ttl_seconds)
 
