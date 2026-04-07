@@ -96,6 +96,7 @@ class ForecastRelevantDividendRow:
     currency: str | None
     weight: float | None
     is_reference: bool
+    is_prior_forecast: bool = False
 
 
 @dataclass(frozen=True)
@@ -383,6 +384,7 @@ def build_forecast_explanation_view(
                     explanation.chosen_reference_dividend is not None
                     and event.id == explanation.chosen_reference_dividend.id
                 ),
+                is_prior_forecast=event.forecast,
             )
         )
 

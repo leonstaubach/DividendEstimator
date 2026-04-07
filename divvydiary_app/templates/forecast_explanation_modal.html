@@ -6,6 +6,7 @@
 {
     "labels": {{ sorted_rows | map(attribute='pay_date') | list | tojson }},
     "amounts": {{ sorted_rows | map(attribute='amount') | list | tojson }},
+    "priorForecastIndices": {{ sorted_rows | map(attribute='is_prior_forecast') | list | tojson }},
     "referenceIndex": {{ ref_index.value }},
     "forecastLabel": {{ explanation.predicted_pay_date | tojson }},
     "forecastAmount": {{ explanation.predicted_amount | tojson }},
@@ -90,6 +91,9 @@
 
     <div class="forecast-exp-legend">
         <span class="forecast-exp-legend-item forecast-exp-legend-historical" data-legend-dataset="0">Historical</span>
+        {% if sorted_rows | selectattr('is_prior_forecast') | list | length > 0 %}
+        <span class="forecast-exp-legend-item forecast-exp-legend-prior" data-legend-dataset="0">Prior forecast</span>
+        {% endif %}
         <span class="forecast-exp-legend-item forecast-exp-legend-forecast" data-legend-dataset="1">Forecast</span>
         {% if explanation.is_trend %}
         <span class="forecast-exp-legend-item forecast-exp-legend-trend" data-legend-dataset="2">Trend</span>

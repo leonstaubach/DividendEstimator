@@ -472,19 +472,37 @@ class DividendEstimator:
     ) -> list[ForecastDividendEvent]:
         event_count = self.FORECAST_EVENT_COUNTS[cadence.name]
         forecast_events: list[ForecastDividendEvent] = []
+        is_monthly = cadence.name == "monthly"
+        working_history = list(dividends)
 
         for steps_ahead in range(1, event_count + 1):
-            payment_date = self._estimate_next_payment_date(dividends, cadence, steps_ahead)
-            amount, _ = self._estimate_payment_amount(dividends, cadence, payment_date)
+            if is_monthly:
+                payment_date = self._estimate_next_payment_date(working_history, cadence, 1)
+                amount, _ = self._estimate_payment_amount(working_history, cadence, payment_date)
+            else:
+                payment_date = self._estimate_next_payment_date(dividends, cadence, steps_ahead)
+                amount, _ = self._estimate_payment_amount(dividends, cadence, payment_date)
+            ex_date = self._estimate_next_ex_date(dividends, payment_date)
             forecast_events.append(
                 ForecastDividendEvent(
-                    ex_date=self._estimate_next_ex_date(dividends, payment_date),
+                    ex_date=ex_date,
                     pay_date=payment_date,
                     amount=amount,
                     currency=dividends[-1].currency,
                     forecast=True,
                 )
             )
+            if is_monthly:
+                working_history.append(
+                    DividendEvent(
+                        id=-steps_ahead,
+                        ex_date=ex_date,
+                        pay_date=payment_date,
+                        amount=amount,
+                        currency=dividends[-1].currency,
+                        forecast=True,
+                    )
+                )
 
         return forecast_events
 
@@ -509,11 +527,41 @@ class DividendEstimator:
         if cadence is None:
             return None
 
-        payment_date = self._estimate_next_payment_date(effective_dividends, cadence, steps_ahead)
-        ex_date = self._estimate_next_ex_date(effective_dividends, payment_date)
-        predicted_amount, basis, trend_analysis = self._estimate_payment_amount_full(
-            effective_dividends, cadence, payment_date
-        )
+        monthly_display_dividends = effective_dividends
+        # For monthly, iterate like _forecast_events so each step feeds into the next.
+        # This gives the explanation for step N the same prior-forecast context that
+        # produced the actual forecast event shown in the UI.
+        if cadence.name == "monthly" and steps_ahead >= 1:
+            working_history = list(effective_dividends)
+            for step in range(1, steps_ahead + 1):
+                step_pay_date = self._estimate_next_payment_date(working_history, cadence, 1)
+                step_amount, step_basis, step_trend = self._estimate_payment_amount_full(
+                    working_history, cadence, step_pay_date
+                )
+                step_ex_date = self._estimate_next_ex_date(working_history, step_pay_date)
+                if step < steps_ahead:
+                    working_history.append(
+                        DividendEvent(
+                            id=-step,
+                            ex_date=step_ex_date,
+                            pay_date=step_pay_date,
+                            amount=step_amount,
+                            currency=working_history[-1].currency,
+                            forecast=True,
+                        )
+                    )
+            monthly_display_dividends = working_history
+            payment_date = step_pay_date
+            ex_date = step_ex_date
+            predicted_amount = step_amount
+            basis = step_basis
+            trend_analysis = step_trend
+        else:
+            payment_date = self._estimate_next_payment_date(effective_dividends, cadence, steps_ahead)
+            ex_date = self._estimate_next_ex_date(effective_dividends, payment_date)
+            predicted_amount, basis, trend_analysis = self._estimate_payment_amount_full(
+                effective_dividends, cadence, payment_date
+            )
         confidence, confidence_score = self._score_confidence(
             effective_dividends, cadence.match_ratio, trend_analysis, basis
         )
@@ -532,12 +580,10 @@ class DividendEstimator:
             elif basis.endswith("_last_payment_fallback"):
                 chosen_reference_dividend = latest_dividend
         elif cadence.name == "monthly":
-            # For monthly, "seasonal" = all recent dividends used for the trend
-            seasonal_dividends = effective_dividends[-12:]
-            if trend_analysis is not None:
-                chosen_reference_dividend = seasonal_dividends[-1]
-            else:
-                chosen_reference_dividend = latest_dividend
+            # For monthly, "seasonal" = all recent dividends used for the trend,
+            # including any prior forecast steps leading up to this one. There is
+            # no single "reference" payment under the iterative trend model.
+            seasonal_dividends = monthly_display_dividends[-12:]
 
         median_ex_to_pay_gap_days = self._median_ex_to_pay_gap_days(effective_dividends)
 
