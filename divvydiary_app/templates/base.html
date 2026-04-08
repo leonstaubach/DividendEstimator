@@ -889,6 +889,8 @@
 
         .payment-card-summary-top .payment-card-accessory-left {
             justify-self: start;
+            position: relative;
+            z-index: 1;
         }
 
         .payment-card-summary-top .payment-card-accessory-right {
@@ -1569,6 +1571,50 @@
             gap: 0.35rem;
         }
 
+        .settings-divider {
+            margin: 0.45rem 0;
+            border-top: 1px solid var(--app-border);
+        }
+
+        #refresh-cache-btn {
+            font-size: 1.25rem;
+        }
+
+        #refresh-cache-btn[disabled] {
+            opacity: 0.4;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        [data-privacy="on"] .priv {
+            filter: blur(6px);
+            user-select: none;
+            cursor: default;
+        }
+
+        .privacy-hover-tooltip {
+            position: fixed;
+            transform: translate(-50%, calc(-100% - 6px));
+            background: var(--pico-color);
+            color: var(--pico-background-color);
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 500;
+            white-space: nowrap;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s;
+            z-index: 1000;
+        }
+
+        .privacy-hover-tooltip.is-visible {
+            opacity: 1;
+        }
+
         article,
         .table-scroll,
         .chart-panel {
@@ -1919,6 +1965,16 @@
                             <button type="button" class="theme-button" data-theme-option="dark" aria-label="Dark mode" title="Dark mode">☾</button>
                             <button type="button" class="theme-button" data-theme-option="system" aria-label="System mode" title="System mode">💻</button>
                         </div>
+                        <div class="settings-divider"></div>
+                        <span class="settings-label">Data</span>
+                        <div class="theme-options">
+                            <button type="button" id="refresh-cache-btn" class="theme-button" aria-label="Refresh cached data" title="Refresh cached data">↻</button>
+                        </div>
+                        <div class="settings-divider"></div>
+                        <span class="settings-label">Privacy</span>
+                        <div class="theme-options">
+                            <button type="button" id="privacy-toggle-btn" class="theme-button" aria-label="Hide portfolio amounts" title="Hide portfolio amounts">👁</button>
+                        </div>
                     </div>
                 </details>
             </div>
@@ -2068,6 +2124,43 @@
                 }
             });
         });
+
+        (function () {
+            const PRIVACY_KEY = "dividend-viewer-privacy-mode";
+
+            const privacyTooltip = document.createElement("div");
+            privacyTooltip.className = "privacy-hover-tooltip";
+            privacyTooltip.textContent = "Hidden in Privacy Mode";
+            document.body.appendChild(privacyTooltip);
+
+            document.addEventListener("mouseover", (e) => {
+                if (document.body.dataset.privacy !== "on") return;
+                const priv = e.target.closest(".priv");
+                if (!priv) return;
+                const rect = priv.getBoundingClientRect();
+                privacyTooltip.style.left = `${rect.left + rect.width / 2}px`;
+                privacyTooltip.style.top = `${rect.top}px`;
+                privacyTooltip.classList.add("is-visible");
+            });
+
+            document.addEventListener("mouseout", (e) => {
+                if (!e.target.closest(".priv")) return;
+                privacyTooltip.classList.remove("is-visible");
+            });
+
+            function applyPrivacyMode(on) {
+                document.body.dataset.privacy = on ? "on" : "off";
+                const btn = document.getElementById("privacy-toggle-btn");
+                if (btn) btn.classList.toggle("is-active", on);
+                if (!on) privacyTooltip.classList.remove("is-visible");
+            }
+            applyPrivacyMode(localStorage.getItem(PRIVACY_KEY) === "on");
+            document.getElementById("privacy-toggle-btn")?.addEventListener("click", () => {
+                const next = document.body.dataset.privacy !== "on";
+                localStorage.setItem(PRIVACY_KEY, next ? "on" : "off");
+                applyPrivacyMode(next);
+            });
+        })();
 
         function applyMonthlyDateMode(mode) {
             document.querySelectorAll("[data-month-date-mode]").forEach((element) => {
@@ -2345,15 +2438,11 @@
             forecastModal?.close();
         });
 
-        const refreshCacheForm = document.getElementById("refresh-cache-form");
         const refreshCacheBtn = document.getElementById("refresh-cache-btn");
 
-        if (refreshCacheForm && refreshCacheBtn) {
-            refreshCacheForm.addEventListener("submit", async (event) => {
-                event.preventDefault();
-                refreshCacheBtn.setAttribute("aria-busy", "true");
+        if (refreshCacheBtn) {
+            refreshCacheBtn.addEventListener("click", async () => {
                 refreshCacheBtn.disabled = true;
-                refreshCacheBtn.textContent = "Refreshing…";
                 try {
                     await fetch("/actions/refresh-cache", { method: "POST" });
                 } finally {
@@ -2429,11 +2518,14 @@
                                 callbacks: {
                                     label(context) {
                                         const item = chartData[context.dataIndex];
-                                        return [
+                                        const lines = [
                                             `${item.name} (${item.code})`,
                                             `Allocation: ${Number(context.raw).toFixed(2)}%`,
-                                            `Holding value: ${item.holding_value_formatted}`,
                                         ];
+                                        if (document.body.dataset.privacy !== "on") {
+                                            lines.push(`Holding value: ${item.holding_value_formatted}`);
+                                        }
+                                        return lines;
                                     },
                                 },
                             },

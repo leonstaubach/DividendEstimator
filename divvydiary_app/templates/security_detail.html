@@ -25,10 +25,10 @@
                 <div class="hero-meta">
                     <span class="meta-pill">{{ security.code }}</span>
                     <span class="meta-pill mono-meta">{{ security.isin }}</span>
-                    <span class="meta-pill"><span class="numeric">{{ format_quantity(security.quantity) }}</span> shares</span>
-                    <span class="meta-pill">{{ format_currency(security.position_value, security.currency) }}</span>
+                    <span class="meta-pill priv"><span class="numeric">{{ format_quantity(security.quantity) }}</span> shares</span>
+                    <span class="meta-pill priv">{{ format_currency(security.position_value, security.currency) }}</span>
                     {% if security.allocation is not none %}
-                        <span class="meta-pill"><span class="numeric">{{ "%.1f"|format(security.allocation) }}%</span> of portfolio</span>
+                        <span class="meta-pill priv"><span class="numeric">{{ "%.1f"|format(security.allocation) }}%</span> of portfolio</span>
                     {% endif %}
                     {% if security.dividend_frequency %}
                         <span class="meta-pill">{{ security.dividend_frequency }}</span>
@@ -82,12 +82,12 @@
                         </div>
                         <div class="security-kpi-card">
                             <span class="security-kpi-label">Next payout</span>
-                            <strong class="security-kpi-value numeric">{{ format_currency(security.estimated_total_amount, security.currency) }}</strong>
+                            <strong class="security-kpi-value numeric priv">{{ format_currency(security.estimated_total_amount, security.currency) }}</strong>
                             <span class="security-kpi-note">{{ format_currency(security.next_payment_amount, security.currency, 4) }} per share</span>
                         </div>
                         <div class="security-kpi-card">
                             <span class="security-kpi-label">Estimated 12M total</span>
-                            <strong class="security-kpi-value numeric">{{ format_currency(security.estimated_annual_total_amount, security.currency) }}</strong>
+                            <strong class="security-kpi-value numeric priv">{{ format_currency(security.estimated_annual_total_amount, security.currency) }}</strong>
                             {% if security.cadence_name %}
                                 <span class="security-kpi-note">{{ security.cadence_name }}{% if security.cadence_days %} · {{ security.cadence_days }}d{% endif %}</span>
                             {% endif %}
@@ -151,7 +151,7 @@
                                         <span class="meta-pill">Forecast #{{ row.index }}</span>
                                         <span class="security-forecast-card-date numeric">{{ format_display_date(row.pay_date, include_weekday=False) }}</span>
                                     </div>
-                                    <div class="security-forecast-card-amount numeric">{{ format_currency(row.total_amount, row.currency) }}</div>
+                                    <div class="security-forecast-card-amount numeric priv">{{ format_currency(row.total_amount, row.currency) }}</div>
                                     <p class="security-forecast-card-support">{{ format_currency(row.amount_per_share, row.currency, 4) }} per share · ex {{ format_display_date(row.ex_date, include_weekday=False) }}</p>
                                     <a
                                         href="/security/{{ security.isin }}/forecast/{{ row.index }}"

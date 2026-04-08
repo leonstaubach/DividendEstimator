@@ -15,11 +15,6 @@
                 </div>
             {% endif %}
         </div>
-        <div class="hero-actions">
-            <form id="refresh-cache-form" method="post" action="/actions/refresh-cache">
-                <button type="submit" id="refresh-cache-btn">Refresh Cached Data</button>
-            </form>
-        </div>
     </section>
 
     {% if error_message %}
@@ -47,11 +42,11 @@
                         <div class="chart-summary">
                             <span class="metric-chip">
                                 <span class="metric-chip-label">Total Value</span>
-                                <span class="metric-chip-value numeric">{{ format_currency(dashboard.total_value, dashboard.portfolio_currency) }}</span>
+                                <span class="metric-chip-value numeric priv">{{ format_currency(dashboard.total_value, dashboard.portfolio_currency) }}</span>
                             </span>
                             <span class="metric-chip">
                                 <span class="metric-chip-label">Positions</span>
-                                <span class="metric-chip-value numeric">{{ dashboard.holdings|length }}</span>
+                                <span class="metric-chip-value numeric priv">{{ dashboard.holdings|length }}</span>
                             </span>
                         </div>
                     </div>
@@ -74,7 +69,7 @@
                         <p>Click any security to open its dedicated details page.</p>
                     </div>
                     <div class="header-actions">
-                        <span class="table-count"><span class="numeric">{{ dashboard.holdings|length }}</span> rows</span>
+                        <span class="table-count priv"><span class="numeric">{{ dashboard.holdings|length }}</span> rows</span>
                     </div>
                 </header>
                 <div class="table-scroll">
@@ -96,7 +91,7 @@
                                     <td data-sort-value="{{ row.name }}"><a href="/security/{{ row.isin }}">{{ row.name }}</a></td>
                                     <td data-sort-value="{{ row.isin }}" class="mono-meta">{{ row.isin }}</td>
                                     <td data-sort-value="{{ row.code }}"><strong>{{ row.code }}</strong></td>
-                                    <td data-sort-value="{{ row.value }}" class="numeric">{{ format_currency(row.value, dashboard.portfolio_currency) }}</td>
+                                    <td data-sort-value="{{ row.value }}" class="numeric priv">{{ format_currency(row.value, dashboard.portfolio_currency) }}</td>
                                     <td data-sort-value="{{ row.portfolio_percentage }}" class="numeric">{{ "%.2f"|format(row.portfolio_percentage) }}%</td>
                                 </tr>
                             {% endfor %}

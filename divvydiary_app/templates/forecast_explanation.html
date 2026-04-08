@@ -50,7 +50,7 @@
                         <strong>Prediction</strong><br>
                         Payment Date: {{ explanation.predicted_pay_date or "n/a" }}<br>
                         Dividend: {{ format_currency(explanation.predicted_amount, explanation.currency, 4) }}<br>
-                        {% if explanation.predicted_total_amount is not none %}Estimated Total: {{ format_currency(explanation.predicted_total_amount, explanation.currency) }}{% else %}Estimated Total: n/a{% endif %}
+                        Estimated Total: <span class="priv">{% if explanation.predicted_total_amount is not none %}{{ format_currency(explanation.predicted_total_amount, explanation.currency) }}{% else %}n/a{% endif %}</span>
                     </div>
                     <div class="detail-card">
                         <strong>Cadence</strong><br>
