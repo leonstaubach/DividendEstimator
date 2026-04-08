@@ -9,23 +9,6 @@
                 <p>Review the previous month first, then the current month and up to the next 12 months of projected dividend payments across the portfolio.</p>
             </div>
         </div>
-        <div class="hero-actions hero-actions-right hero-actions-stack">
-            {% if monthly_view %}
-                <div class="date-toggle-group">
-                    <span class="date-toggle-label">
-                        Primary Date
-                        <span class="info-btn" aria-label="Choose which date should be used to be shown on the primary dividend card">
-                            &#x24D8;
-                            <span class="info-tooltip">Choose which date should be used to be shown on the primary dividend card</span>
-                        </span>
-                    </span>
-                    <div class="date-toggle compact" role="group" aria-label="Compact date display mode" data-month-date-mode="pay">
-                        <button type="button" class="date-toggle-button" data-date-toggle-mode="pay">Pay Date</button>
-                        <button type="button" class="date-toggle-button" data-date-toggle-mode="ex">Ex-Date</button>
-                    </div>
-                </div>
-            {% endif %}
-        </div>
     </section>
 
     {% if error_message %}
@@ -102,7 +85,7 @@
                                                 <div class="dividend-card-meta">
                                                     <div>
                                                         <span class="dividend-card-meta-label">Pay Date</span>
-                                                        <span class="dividend-card-meta-value numeric">{{ format_display_date(row.pay_date) }}</span>
+                                                        <span class="dividend-card-meta-value numeric">{{ format_display_date(row.pay_date, include_weekday=False) }}</span>
                                                     </div>
                                                     <div>
                                                         <span class="dividend-card-meta-label">Ex-Date</span>
@@ -157,7 +140,7 @@
                                                 <div class="dividend-card-meta">
                                                     <div>
                                                         <span class="dividend-card-meta-label">Pay Date</span>
-                                                        <span class="dividend-card-meta-value numeric">{{ format_display_date(row.pay_date) }}</span>
+                                                        <span class="dividend-card-meta-value numeric">{{ format_display_date(row.pay_date, include_weekday=False) }}</span>
                                                     </div>
                                                     <div>
                                                         <span class="dividend-card-meta-label">Ex-Date</span>

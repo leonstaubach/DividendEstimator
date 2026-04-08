@@ -802,20 +802,14 @@
             display: none;
         }
 
-        [data-month-date-mode="ex"] .compact-pay-date {
-            display: none;
-        }
-
-        [data-month-date-mode="ex"] .compact-ex-date {
-            display: block;
-        }
 
         .dividend-card-meta {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.75rem;
+            display: flex;
+            justify-content: center;
+            gap: 2.5rem;
             padding-top: 0.9rem;
             border-top: 1px solid var(--app-border);
+            text-align: center;
         }
 
         .dividend-card-meta-label {
@@ -1817,9 +1811,14 @@
             .dashboard-hero-grid,
             .dashboard-grid,
             .detail-grid,
-            .dividend-card-meta,
             .modal-detail-grid {
                 grid-template-columns: 1fr;
+            }
+
+            .dividend-card-meta {
+                flex-direction: column;
+                align-items: center;
+                gap: 1rem;
             }
 
             .month-grid {
@@ -2161,26 +2160,6 @@
                 applyPrivacyMode(next);
             });
         })();
-
-        function applyMonthlyDateMode(mode) {
-            document.querySelectorAll("[data-month-date-mode]").forEach((element) => {
-                element.dataset.monthDateMode = mode;
-            });
-            document.querySelectorAll("[data-date-toggle-mode]").forEach((button) => {
-                button.classList.toggle("is-active", button.dataset.dateToggleMode === mode);
-            });
-        }
-
-        const storedMonthDateMode = localStorage.getItem("dividend-viewer-month-date-mode") || "pay";
-        applyMonthlyDateMode(storedMonthDateMode);
-
-        document.querySelectorAll("[data-date-toggle-mode]").forEach((button) => {
-            button.addEventListener("click", () => {
-                const mode = button.dataset.dateToggleMode || "pay";
-                localStorage.setItem("dividend-viewer-month-date-mode", mode);
-                applyMonthlyDateMode(mode);
-            });
-        });
 
         let securityDetailChart = null;
 
