@@ -688,7 +688,7 @@
 
         .dividend-card-title h3 {
             margin: 0;
-            max-width: 24rem;
+            max-width: 100%;
             font-size: 0.98rem;
             font-weight: 700;
             line-height: 1.42;
@@ -871,9 +871,13 @@
 
         .payment-card-summary-top {
             display: grid;
-            grid-template-columns: auto minmax(0, 1fr) auto;
+            grid-template-columns: 1fr;
             align-items: center;
-            column-gap: 0.65rem;
+        }
+
+        .payment-card-summary-top > * {
+            grid-column: 1;
+            grid-row: 1;
         }
 
         .payment-card-accessory {
@@ -883,18 +887,18 @@
             align-items: center;
         }
 
-        .payment-card-accessory-left {
-            justify-content: flex-start;
+        .payment-card-summary-top .payment-card-accessory-left {
+            justify-self: start;
         }
 
-        .payment-card-accessory-right {
-            justify-content: flex-end;
+        .payment-card-summary-top .payment-card-accessory-right {
+            justify-self: end;
         }
 
         .payment-card-summary-top .dividend-card-title {
-            grid-column: 2;
-            justify-self: center;
+            justify-self: stretch;
             min-width: 0;
+            padding-inline: 4.5rem;
         }
 
         .forecast-card-badge-overlay {
@@ -1825,12 +1829,24 @@
 
             .payment-card-summary-top {
                 grid-template-columns: 1fr;
-                gap: 0.5rem;
+                row-gap: 0.5rem;
+            }
+
+            .payment-card-summary-top > * {
+                grid-row: auto;
             }
 
             .payment-card-summary-top .dividend-card-title {
-                grid-column: 1;
-                text-align: left;
+                justify-self: stretch;
+                padding-inline: 0;
+            }
+
+            .payment-card-summary-top .payment-card-accessory-left {
+                justify-self: center;
+            }
+
+            .payment-card-summary-top .payment-card-accessory-right {
+                display: none;
             }
 
             .payment-card-accessory-right {
