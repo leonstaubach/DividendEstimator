@@ -38,3 +38,6 @@ dist/
 # Project specific
 .codex
 .cache
+.claude
+
+gcp_project_account_secret.json

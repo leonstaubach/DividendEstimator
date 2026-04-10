@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 
@@ -38,7 +39,14 @@ def get_runtime() -> AppRuntime:
 
 
 def create_app(runtime: AppRuntime | None = None) -> FastAPI:
-    app = FastAPI(title="Dividend Viewer", version="1.0.0")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        runtime or get_runtime()
+        logger.info("Application started")
+        yield
+        logger.debug("Application shutting down")
+
+    app = FastAPI(title="Dividend Viewer", version="1.0.0", lifespan=lifespan)
 
     def load_forecast_explanation_context(active_runtime: AppRuntime, isin: str, forecast_index: int):
         resolved_portfolio, estimated_histories = active_runtime.service.load_portfolio_data()

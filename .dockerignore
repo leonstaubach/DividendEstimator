@@ -1,0 +1,7 @@
+.venv
+.cache
+__pycache__
+.env
+gcp_project_account_secret.json
+*.pyc
+*.pyo
