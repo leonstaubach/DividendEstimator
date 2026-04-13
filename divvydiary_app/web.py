@@ -46,7 +46,7 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
         yield
         logger.debug("Application shutting down")
 
-    app = FastAPI(title="Dividend Viewer", version="1.0.0", lifespan=lifespan)
+    app = FastAPI(title="Leon's Dividend Estimator", version="1.0.0", lifespan=lifespan)
 
     def load_forecast_explanation_context(active_runtime: AppRuntime, isin: str, forecast_index: int):
         resolved_portfolio, estimated_histories = active_runtime.service.load_portfolio_data()
