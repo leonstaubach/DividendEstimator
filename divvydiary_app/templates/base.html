@@ -2357,26 +2357,28 @@
             const d = JSON.parse(chartDataEl.textContent);
             const amounts = d.amounts;
             const priorMask = d.priorForecastIndices || [];
-            const historicalBgColors = amounts.map((_, i) => {
+            const labels = [...d.labels, d.forecastLabel];
+            const forecastIndex = labels.length - 1;
+            const barData = [...amounts, d.forecastAmount];
+            const barBackgroundColors = barData.map((_, i) => {
+                if (i === forecastIndex) return "rgba(251, 146, 60, 0.4)";
                 if (priorMask[i]) return "rgba(168, 85, 247, 0.55)"; // prior forecast — purple
                 return "rgba(100, 149, 237, 0.65)";
             });
+            const barBorderColors = barData.map((_, i) => {
+                if (i === forecastIndex) return "rgba(251, 146, 60, 0.9)";
+                return "transparent";
+            });
+            const barBorderWidths = barData.map((_, i) => (i === forecastIndex ? 2 : 0));
 
             const datasets = [
                 {
                     type: "bar",
-                    label: "Historical",
-                    data: [...amounts, null],
-                    backgroundColor: [...historicalBgColors, "transparent"],
-                    borderWidth: 0,
-                },
-                {
-                    type: "bar",
-                    label: "Forecast",
-                    data: [...amounts.map(() => null), d.forecastAmount],
-                    backgroundColor: "rgba(251, 146, 60, 0.4)",
-                    borderColor: "rgba(251, 146, 60, 0.9)",
-                    borderWidth: 2,
+                    label: "Dividends",
+                    data: barData,
+                    backgroundColor: barBackgroundColors,
+                    borderColor: barBorderColors,
+                    borderWidth: barBorderWidths,
                 },
             ];
 
@@ -2395,7 +2397,7 @@
                 datasets.push({
                     type: "line",
                     label: "Trend",
-                    data: [...amounts, d.forecastAmount],
+                    data: barData,
                     borderColor: "rgba(251, 146, 60, 0.65)",
                     borderWidth: 1.5,
                     pointRadius: 2,
@@ -2410,7 +2412,7 @@
             forecastChart = new window.Chart(canvas, {
                 type: "bar",
                 data: {
-                    labels: [...d.labels, d.forecastLabel],
+                    labels,
                     datasets,
                 },
                 options: {
@@ -2424,14 +2426,26 @@
                                     const v = ctx.raw;
                                     if (v === null || v === undefined) return null;
                                     const formatted = Number(v).toFixed(4);
-                                    return d.currency ? `${d.currency} ${formatted}` : formatted;
+                                    let seriesLabel = ctx.dataset.label;
+                                    if (ctx.dataset.type === "bar" && ctx.dataset.label === "Dividends") {
+                                        if (ctx.dataIndex === forecastIndex) {
+                                            seriesLabel = "Forecast";
+                                        } else if (priorMask[ctx.dataIndex]) {
+                                            seriesLabel = "Prior forecast";
+                                        } else {
+                                            seriesLabel = "Historical";
+                                        }
+                                    }
+                                    return d.currency
+                                        ? `${seriesLabel}: ${formatted} ${d.currency}`
+                                        : `${seriesLabel}: ${formatted}`;
                                 },
                             },
                         },
                     },
                     scales: {
                         y: {
-                            beginAtZero: false,
+                            beginAtZero: true,
                             ticks: { maxTicksLimit: 5 },
                             grid: { color: "rgba(128, 128, 128, 0.12)" },
                         },

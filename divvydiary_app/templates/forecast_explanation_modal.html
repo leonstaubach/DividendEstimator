@@ -91,9 +91,9 @@
         {% if sorted_rows | selectattr('is_prior_forecast') | list | length > 0 %}
         <span class="forecast-exp-legend-item forecast-exp-legend-prior" data-legend-dataset="0">Prior forecast</span>
         {% endif %}
-        <span class="forecast-exp-legend-item forecast-exp-legend-forecast" data-legend-dataset="1">Forecast</span>
+        <span class="forecast-exp-legend-item forecast-exp-legend-forecast" data-legend-dataset="0">Forecast</span>
         {% if explanation.is_trend %}
-        <span class="forecast-exp-legend-item forecast-exp-legend-trend" data-legend-dataset="2">Trend</span>
+        <span class="forecast-exp-legend-item forecast-exp-legend-trend" data-legend-dataset="1">Trend</span>
         {% endif %}
     </div>
 
