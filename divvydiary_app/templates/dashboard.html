@@ -2,21 +2,6 @@
 
 {% block content %}
 <div class="page-shell">
-    <section class="hero">
-        <div class="hero-copy">
-            <div class="section-copy">
-                <h1>Portfolio Dashboard</h1>
-                <p>Track allocation, review holdings, and jump into dividend forecasting details without losing the high-level picture.</p>
-            </div>
-            {% if dashboard %}
-                <div class="hero-meta">
-                    <span class="meta-pill">{{ dashboard.portfolio_name }}</span>
-                    <span class="meta-pill"><span class="numeric">{{ dashboard.holdings|length }}</span> holdings</span>
-                </div>
-            {% endif %}
-        </div>
-    </section>
-
     {% if error_message %}
         <article class="section-card">
             <div class="section-body">
