@@ -1,13 +1,10 @@
 {% set sorted_rows = explanation.relevant_rows | sort(attribute='pay_date') %}
-{% set ref_index = namespace(value=-1) %}
-{% for row in sorted_rows %}{% if row.is_reference %}{% set ref_index.value = loop.index0 %}{% endif %}{% endfor %}
 
 <script type="application/json" id="forecast-chart-data">
 {
     "labels": {{ sorted_rows | map(attribute='pay_date') | list | tojson }},
     "amounts": {{ sorted_rows | map(attribute='amount') | list | tojson }},
     "priorForecastIndices": {{ sorted_rows | map(attribute='is_prior_forecast') | list | tojson }},
-    "referenceIndex": {{ ref_index.value }},
     "forecastLabel": {{ explanation.predicted_pay_date | tojson }},
     "forecastAmount": {{ explanation.predicted_amount | tojson }},
     "isTrend": {{ explanation.is_trend | tojson }},

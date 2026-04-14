@@ -1,0 +1,131 @@
+{% set exp = backtest.forecast %}
+{% set sorted_rows = exp.relevant_rows | sort(attribute='pay_date') %}
+
+<script type="application/json" id="forecast-chart-data">
+{
+    "labels": {{ sorted_rows | map(attribute='pay_date') | list | tojson }},
+    "amounts": {{ sorted_rows | map(attribute='amount') | list | tojson }},
+    "priorForecastIndices": {{ sorted_rows | map(attribute='is_prior_forecast') | list | tojson }},
+    "forecastLabel": {{ exp.predicted_pay_date | tojson }},
+    "forecastAmount": {{ exp.predicted_amount | tojson }},
+    "actualAmount": {{ backtest.actual_amount | tojson }},
+    "isTrend": {{ exp.is_trend | tojson }},
+    "currency": {{ exp.currency | tojson }}
+}
+</script>
+
+<div class="modal-content-shell">
+
+    {% set has_notices = exp.outliers_removed_count > 0 or exp.suspension_detected or exp.cadence_regime_change or exp.was_growth_capped %}
+    {% if has_notices %}
+    <div class="forecast-notice-list">
+        {% if exp.outliers_removed_count > 0 %}
+        <div class="forecast-notice forecast-notice-warn">
+            <span>⚠</span>
+            <span>{{ exp.outliers_removed_count }} special/outlier dividend{{ "s" if exp.outliers_removed_count != 1 else "" }} excluded from analysis</span>
+        </div>
+        {% endif %}
+        {% if exp.suspension_detected and exp.history_start_date %}
+        <div class="forecast-notice forecast-notice-info">
+            <span>ℹ</span>
+            <span>Dividend suspension detected — using history from {{ exp.history_start_date }} onward</span>
+        </div>
+        {% endif %}
+        {% if exp.cadence_regime_change %}
+        <div class="forecast-notice forecast-notice-info">
+            <span>ℹ</span>
+            <span>Cadence change detected — only recent payments used</span>
+        </div>
+        {% endif %}
+        {% if exp.was_growth_capped %}
+        <div class="forecast-notice forecast-notice-muted">
+            <span>↑</span>
+            <span>Predicted growth was capped at the +20% limit</span>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="forecast-exp-summary backtest-exp-summary">
+        <div class="forecast-exp-amount">
+            <span class="forecast-exp-amount-label">Predicted</span>
+            <span class="forecast-exp-amount-value">{{ format_currency(exp.predicted_amount, exp.currency, 4) }}</span>
+        </div>
+        <div class="backtest-exp-vs">vs</div>
+        <div class="forecast-exp-amount backtest-exp-actual">
+            <span class="forecast-exp-amount-label">Actual</span>
+            <span class="forecast-exp-amount-value">{{ format_currency(backtest.actual_amount, exp.currency, 4) }}</span>
+        </div>
+        <div class="forecast-exp-meta">
+            {% if backtest.amount_error_pct is not none %}
+            <div>
+                <span class="forecast-exp-meta-label">Amount error</span>
+                <span class="forecast-exp-meta-value backtest-meta-error {% if backtest.amount_error_pct | abs < 2 %}is-good{% elif backtest.amount_error_pct | abs < 10 %}is-ok{% else %}is-bad{% endif %}">
+                    {{ "%+.2f"|format(backtest.amount_error_pct) }}%
+                </span>
+            </div>
+            {% endif %}
+            {% if backtest.date_error_days is not none %}
+            <div>
+                <span class="forecast-exp-meta-label">Date error</span>
+                <span class="forecast-exp-meta-value numeric">
+                    {% if backtest.date_error_days == 0 %}exact{% else %}{{ backtest.date_error_days | abs }}d {{ "late" if backtest.date_error_days > 0 else "early" }}{% endif %}
+                </span>
+            </div>
+            {% endif %}
+            <div>
+                <span class="forecast-exp-meta-label">Pay date</span>
+                <span class="forecast-exp-meta-value numeric">{{ backtest.actual_pay_date }}</span>
+            </div>
+            <div>
+                <span class="forecast-exp-meta-label">Cadence</span>
+                <span class="forecast-exp-meta-value">{{ exp.cadence_name }}</span>
+            </div>
+            <div>
+                <span class="forecast-exp-meta-label">Confidence</span>
+                <div class="confidence-bar-wrap">
+                    <div class="confidence-bar-track">
+                        <div class="confidence-bar-fill" style="width: {{ (exp.confidence_score * 100) | round | int }}%"></div>
+                    </div>
+                    <span class="confidence-score-label">{{ "%.0f"|format(exp.confidence_score * 100) }}%</span>
+                </div>
+            </div>
+            {% if exp.growth_rate is not none %}
+            <div>
+                <span class="forecast-exp-meta-label">YoY growth</span>
+                <span class="forecast-exp-meta-value">{{ "%+.1f"|format(exp.growth_rate * 100) }}%</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="forecast-exp-chart-wrap">
+        <canvas id="forecast-explanation-chart"></canvas>
+    </div>
+
+    <div class="forecast-exp-legend">
+        <span class="forecast-exp-legend-item forecast-exp-legend-historical" data-legend-dataset="0">Historical</span>
+        {% if sorted_rows | selectattr('is_prior_forecast') | list | length > 0 %}
+        <span class="forecast-exp-legend-item forecast-exp-legend-prior" data-legend-dataset="0">Prior forecast</span>
+        {% endif %}
+        <span class="forecast-exp-legend-item forecast-exp-legend-forecast" data-legend-dataset="1">Predicted</span>
+        {% if backtest.actual_amount is not none %}
+        <span class="forecast-exp-legend-item forecast-exp-legend-actual" data-legend-dataset="2">Actual</span>
+        {% endif %}
+        {% if exp.is_trend %}
+        <span class="forecast-exp-legend-item forecast-exp-legend-trend" data-legend-dataset="{{ 3 if backtest.actual_amount is not none else 2 }}">Trend</span>
+        {% endif %}
+    </div>
+
+    {% if exp.outliers_removed_count > 0 %}
+    <details class="outlier-details">
+        <summary>{{ exp.outliers_removed_count }} excluded outlier{{ "s" if exp.outliers_removed_count != 1 else "" }} — click to view</summary>
+        <div class="outlier-amounts">
+            {% for row in exp.outliers_removed_rows %}
+            <span class="outlier-amount-chip">{{ row.pay_date or "—" }} · {{ format_amount(row.amount, 4) }} {{ exp.currency or "" }}</span>
+            {% endfor %}
+        </div>
+    </details>
+    {% endif %}
+
+</div>

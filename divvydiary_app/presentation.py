@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, timedelta
 from enum import Enum
@@ -21,6 +22,15 @@ class DividendStatus(Enum):
 
 
 @dataclass(frozen=True)
+class BacktestResult:
+    predicted_amount: float | None
+    predicted_pay_date: str | None
+    amount_error_pct: float | None  # (predicted - actual) / actual * 100
+    date_error_days: int | None     # predicted - actual in days (+ve = predicted later)
+    basis: str
+
+
+@dataclass(frozen=True)
 class MonthlyDividendRow:
     isin: str
     security_name: str
@@ -33,6 +43,8 @@ class MonthlyDividendRow:
     currency: str | None
     status: DividendStatus
     forecast_index: int | None
+    backtest: BacktestResult | None
+    event_id: int | None
 
 
 @dataclass(frozen=True)
@@ -141,6 +153,16 @@ class ForecastExplanationView:
     was_growth_capped: bool
     uncapped_prediction: float | None
     growth_rate: float | None
+
+
+@dataclass(frozen=True)
+class BacktestExplanationView:
+    forecast: ForecastExplanationView
+    actual_amount: float | None
+    actual_total_amount: float | None
+    actual_pay_date: str
+    amount_error_pct: float | None
+    date_error_days: int | None
 
 
 @dataclass(frozen=True)
@@ -265,13 +287,14 @@ def build_monthly_timeline_view(
     histories: list[EstimatedSecurityDividendHistory],
     reference_date: date | None = None,
     forward_months: int = 12,
+    backtest_fn: Callable[[EstimatedSecurityDividendHistory, DividendEvent], BacktestResult | None] | None = None,
 ) -> MonthlyTimelineView:
     active_date = reference_date or date.today()
     current_month = active_date.replace(day=1)
     month_sections: list[MonthlyTimelineSection] = []
 
     for month_date in monthly_timeline_range(current_month, forward_months):
-        rows = monthly_dividend_rows(histories, month_date, include_all_forecasts=True)
+        rows = monthly_dividend_rows(histories, month_date, include_all_forecasts=True, backtest_fn=backtest_fn)
         confirmed_rows = [row for row in rows if row.status != DividendStatus.FORECAST]
         estimated_rows = [row for row in rows if row.status == DividendStatus.FORECAST]
         month_sections.append(
@@ -456,6 +479,33 @@ def build_forecast_explanation_view(
     )
 
 
+def build_backtest_explanation_view(
+    history: EstimatedSecurityDividendHistory,
+    actual_event: DividendEvent,
+    forecast_explanation: ForecastExplanation,
+) -> BacktestExplanationView:
+    forecast_view = build_forecast_explanation_view(history, forecast_explanation)
+
+    amount_error_pct: float | None = None
+    if actual_event.amount is not None and actual_event.amount != 0 and forecast_explanation.predicted_amount is not None:
+        amount_error_pct = (forecast_explanation.predicted_amount - actual_event.amount) / actual_event.amount * 100
+
+    date_error_days: int | None = None
+    if forecast_explanation.predicted_pay_date and actual_event.pay_date:
+        predicted = date.fromisoformat(forecast_explanation.predicted_pay_date)
+        actual = date.fromisoformat(actual_event.pay_date)
+        date_error_days = (predicted - actual).days
+
+    return BacktestExplanationView(
+        forecast=forecast_view,
+        actual_amount=actual_event.amount,
+        actual_total_amount=event_total_amount(actual_event.amount, history.security.quantity),
+        actual_pay_date=actual_event.pay_date or "-",
+        amount_error_pct=amount_error_pct,
+        date_error_days=date_error_days,
+    )
+
+
 def select_history(
     histories: list[EstimatedSecurityDividendHistory],
     selected_isin: str | None,
@@ -475,6 +525,7 @@ def monthly_dividend_rows(
     histories: list[EstimatedSecurityDividendHistory],
     month_date: date,
     include_all_forecasts: bool = False,
+    backtest_fn: Callable[[EstimatedSecurityDividendHistory, DividendEvent], BacktestResult | None] | None = None,
 ) -> list[MonthlyDividendRow]:
     rows: list[MonthlyDividendRow] = []
 
@@ -484,6 +535,10 @@ def monthly_dividend_rows(
             if event.pay_date is None or not is_same_month(event.pay_date, month_date):
                 continue
 
+            status = DividendStatus.FORECAST if event.forecast else (
+                DividendStatus.PAID if event.pay_date <= date.today().isoformat() else DividendStatus.CONFIRMED
+            )
+            backtest = backtest_fn(history, event) if backtest_fn and status == DividendStatus.PAID else None
             row = MonthlyDividendRow(
                 isin=history.security.isin,
                 security_name=history.security.name,
@@ -494,10 +549,10 @@ def monthly_dividend_rows(
                 amount_per_share=event.amount,
                 total_amount=event_total_amount(event.amount, history.security.quantity),
                 currency=event.currency or history.security.currency,
-                status=DividendStatus.FORECAST if event.forecast else (
-                    DividendStatus.PAID if event.pay_date <= date.today().isoformat() else DividendStatus.CONFIRMED
-                ),
+                status=status,
                 forecast_index=None,
+                backtest=backtest,
+                event_id=event.id,
             )
             rows.append(row)
             seen_keys.add((event.pay_date, event.amount))
@@ -555,6 +610,8 @@ def estimated_monthly_dividend_rows(
                 currency=event.currency or history.security.currency,
                 status=DividendStatus.FORECAST,
                 forecast_index=forecast_index if history.estimate.forecast_events else None,
+                backtest=None,
+                event_id=None,
             )
         )
 

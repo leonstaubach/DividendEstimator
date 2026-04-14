@@ -828,6 +828,50 @@
             font-weight: 700;
         }
 
+        .backtest-row {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            margin-top: 0.6rem;
+            padding-top: 0.6rem;
+            border-top: 1px solid var(--pico-muted-border-color);
+            font-size: 0.85rem;
+        }
+
+        .backtest-label {
+            flex-shrink: 0;
+            color: var(--pico-muted-color);
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        .backtest-explain-link {
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .backtest-explain-link:hover {
+            text-decoration: underline;
+        }
+
+        .backtest-value {
+            color: var(--pico-color);
+        }
+
+        .backtest-error {
+            font-weight: 600;
+        }
+
+        .backtest-error.is-good { color: var(--pico-ins-color, #4caf50); }
+        .backtest-error.is-ok   { color: var(--pico-color); }
+        .backtest-error.is-bad  { color: var(--pico-del-color, #e53935); }
+
+        .backtest-date-delta {
+            color: var(--pico-muted-color);
+        }
+
         .payment-card {
             overflow: hidden;
             position: relative;
@@ -1479,10 +1523,6 @@
             background: rgba(100, 149, 237, 0.65);
         }
 
-        .forecast-exp-legend-reference::before {
-            background: rgba(32, 178, 170, 0.8);
-        }
-
         .forecast-exp-legend-prior::before {
             background: rgba(168, 85, 247, 0.55);
         }
@@ -1492,12 +1532,43 @@
             box-shadow: inset 0 0 0 1.5px rgba(251, 146, 60, 0.9);
         }
 
+        .forecast-exp-legend-actual::before {
+            background: rgba(74, 222, 128, 0.45);
+            box-shadow: inset 0 0 0 1.5px rgba(74, 222, 128, 0.9);
+        }
+
         .forecast-exp-legend-trend::before {
             background: rgba(251, 146, 60, 0.6);
             height: 2px;
             width: 18px;
             border-radius: 1px;
         }
+
+        .backtest-exp-summary {
+            display: grid;
+            grid-template-columns: auto auto auto 1fr;
+            align-items: start;
+            gap: 0 1.2rem;
+        }
+
+        .backtest-exp-vs {
+            align-self: center;
+            color: var(--pico-muted-color);
+            font-size: 0.85rem;
+            padding-top: 1.4rem;
+        }
+
+        .backtest-exp-actual .forecast-exp-amount-value {
+            color: rgba(74, 222, 128, 0.9);
+        }
+
+        .backtest-meta-error {
+            font-weight: 700;
+        }
+
+        .backtest-meta-error.is-good { color: var(--pico-ins-color, #4caf50); }
+        .backtest-meta-error.is-ok   { color: var(--pico-color); }
+        .backtest-meta-error.is-bad  { color: var(--pico-del-color, #e53935); }
 
         .forecast-exp-narrative {
             color: var(--pico-muted-color);
@@ -2285,11 +2356,9 @@
 
             const d = JSON.parse(chartDataEl.textContent);
             const amounts = d.amounts;
-            const refIdx = d.referenceIndex;
             const priorMask = d.priorForecastIndices || [];
             const historicalBgColors = amounts.map((_, i) => {
                 if (priorMask[i]) return "rgba(168, 85, 247, 0.55)"; // prior forecast — purple
-                if (i === refIdx) return "rgba(32, 178, 170, 0.8)";
                 return "rgba(100, 149, 237, 0.65)";
             });
 
@@ -2310,6 +2379,17 @@
                     borderWidth: 2,
                 },
             ];
+
+            if (d.actualAmount != null) {
+                datasets.push({
+                    type: "bar",
+                    label: "Actual",
+                    data: [...amounts.map(() => null), d.actualAmount],
+                    backgroundColor: "rgba(74, 222, 128, 0.45)",
+                    borderColor: "rgba(74, 222, 128, 0.9)",
+                    borderWidth: 2,
+                });
+            }
 
             if (d.isTrend) {
                 datasets.push({

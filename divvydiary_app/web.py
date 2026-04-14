@@ -12,6 +12,7 @@ from .bootstrap import AppRuntime, build_runtime
 from .config import AppConfig
 from .logging_config import configure_logging, get_logger
 from .presentation import (
+    build_backtest_explanation_view,
     build_dashboard_view,
     build_forecast_explanation_view,
     build_monthly_timeline_view,
@@ -156,7 +157,11 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
             )
 
         resolved_portfolio, estimated_histories = active_runtime.service.load_portfolio_data()
-        monthly_timeline = build_monthly_timeline_view(resolved_portfolio, estimated_histories)
+        monthly_timeline = build_monthly_timeline_view(
+            resolved_portfolio,
+            estimated_histories,
+            backtest_fn=active_runtime.service.backtest_dividend,
+        )
         return templates.TemplateResponse(
             request,
             "monthly.html",
@@ -299,6 +304,35 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
             {
                 "request": request,
                 "explanation": explanation_view,
+            },
+        )
+
+    @app.get("/security/{isin}/backtest/{event_id}/modal", response_class=HTMLResponse)
+    async def backtest_explanation_modal(request: Request, isin: str, event_id: int):
+        active_runtime = runtime or get_runtime()
+        if not active_runtime.config.api_key:
+            return HTMLResponse(
+                '<p class="modal-error">Please set DIVVYDIARY_API_KEY in the .env file before starting the web app.</p>',
+                status_code=500,
+            )
+
+        resolved_portfolio, estimated_histories = active_runtime.service.load_portfolio_data()
+        history = next((h for h in estimated_histories if h.security.isin == isin), None)
+        if history is None:
+            raise HTTPException(status_code=404, detail="Security not found")
+
+        result = active_runtime.service.backtest_explanation(history, event_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Backtest explanation unavailable")
+
+        actual_event, forecast_explanation = result
+        backtest_view = build_backtest_explanation_view(history, actual_event, forecast_explanation)
+        return templates.TemplateResponse(
+            request,
+            "backtest_explanation_modal.html",
+            {
+                "request": request,
+                "backtest": backtest_view,
             },
         )
 

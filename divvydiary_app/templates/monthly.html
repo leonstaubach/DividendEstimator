@@ -83,6 +83,24 @@
                                                         <span class="dividend-card-meta-value numeric">{{ format_display_date(row.ex_date, include_weekday=False) }}</span>
                                                     </div>
                                                 </div>
+                                                {% if row.backtest %}
+                                                <div class="backtest-row">
+                                                    <a class="backtest-label backtest-explain-link"
+                                                       href="/security/{{ row.isin }}/backtest/{{ row.event_id }}/modal"
+                                                       data-forecast-modal-url="/security/{{ row.isin }}/backtest/{{ row.event_id }}/modal">Forecast accuracy ↗</a>
+                                                    <span class="backtest-value">
+                                                        <span class="numeric">{{ format_currency(row.backtest.predicted_amount, row.currency, 4) }}</span> predicted
+                                                        {% if row.backtest.amount_error_pct is not none %}
+                                                        <span class="backtest-error {% if row.backtest.amount_error_pct | abs < 2 %}is-good{% elif row.backtest.amount_error_pct | abs < 10 %}is-ok{% else %}is-bad{% endif %}">
+                                                            ({{ "%+.1f"|format(row.backtest.amount_error_pct) }}%)
+                                                        </span>
+                                                        {% endif %}
+                                                        {% if row.backtest.date_error_days is not none and row.backtest.date_error_days != 0 %}
+                                                        · <span class="backtest-date-delta numeric">{{ row.backtest.date_error_days | abs }}d {{ "late" if row.backtest.date_error_days > 0 else "early" }}</span>
+                                                        {% endif %}
+                                                    </span>
+                                                </div>
+                                                {% endif %}
                                             </div>
                                         </details>
                                     {% endfor %}
