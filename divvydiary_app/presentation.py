@@ -335,6 +335,11 @@ def build_security_detail_view(
         )
         for index, event in enumerate(security_forecast_events(history), start=1)
     ]
+    all_historical_events = sorted(
+        [event for event in history.dividends if not event.forecast],
+        key=dividend_sort_key,
+        reverse=True,
+    )
     recent_history_rows = [
         SecurityHistoryRow(
             pay_date=event.pay_date or "-",
@@ -342,7 +347,7 @@ def build_security_detail_view(
             amount=event.amount,
             currency=event.currency or history.security.currency,
         )
-        for event in latest_historical_dividends(history)
+        for event in all_historical_events
     ]
     position_value = security_value(history.security)
 
