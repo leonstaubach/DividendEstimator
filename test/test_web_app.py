@@ -47,8 +47,11 @@ class FakeClient:
     def get_resolved_portfolio(self) -> ResolvedPortfolio:
         return self._resolved_portfolio
 
-    def get_symbol_dividends(self, isin: str) -> list[dict]:
-        return self._dividends_by_isin[isin]
+    def get_symbol_dividends(self, isin: str) -> list[DividendEvent]:
+        return [DividendEvent.from_api(d) for d in self._dividends_by_isin[isin]]
+
+    def is_portfolio_cached(self) -> bool:
+        return True
 
     def clear_cache(self) -> None:
         self.clear_cache_calls += 1
@@ -244,7 +247,7 @@ class FastAPIAppTests(unittest.TestCase):
                 cache_file=Path(self.temp_dir.name) / "cache.json",
             ),
             cache=cache,
-            client=fake_client,  # type: ignore[arg-type]
+            source=fake_client,
             service=service,
         )
         self.fake_client = fake_client

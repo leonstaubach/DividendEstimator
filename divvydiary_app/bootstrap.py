@@ -6,13 +6,14 @@ from .cache import FileCache, GCSCache, _CacheBase
 from .client import DivvyDiaryClient
 from .config import AppConfig
 from .service import PortfolioService
+from .source import PortfolioDataSource
 
 
 @dataclass(frozen=True)
 class AppRuntime:
     config: AppConfig
     cache: _CacheBase
-    client: DivvyDiaryClient
+    source: PortfolioDataSource
     service: PortfolioService
 
 
@@ -36,6 +37,6 @@ def build_runtime(config: AppConfig | None = None) -> AppRuntime:
     return AppRuntime(
         config=active_config,
         cache=cache,
-        client=client,
+        source=client,
         service=service,
     )

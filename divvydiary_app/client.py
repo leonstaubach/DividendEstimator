@@ -8,7 +8,7 @@ from typing import Any
 from .cache import FileCache
 from .config import AppConfig
 from .logging_config import get_logger
-from .models import Portfolio, ResolvedPortfolio, UserProfile
+from .models import DividendEvent, Portfolio, ResolvedPortfolio, UserProfile
 
 logger = get_logger("client")
 
@@ -59,12 +59,13 @@ class DivvyDiaryClient:
             portfolio=Portfolio.from_api(payload.get("portfolio", {})),
         )
 
-    def get_symbol_dividends(self, isin: str) -> list[dict[str, Any]]:
-        return self._get_or_fetch_cached_value(
+    def get_symbol_dividends(self, isin: str) -> list[DividendEvent]:
+        raw_dividends = self._get_or_fetch_cached_value(
             key=f"symbol_dividends:{isin}",
             data_label=f"Dividend history for {isin}",
             fetch_func=lambda: self.get_json(f"/symbols/{isin}").get("dividends", []),
         )
+        return [DividendEvent.from_api(d) for d in raw_dividends]
 
     def is_portfolio_cached(self) -> bool:
         if self.cache is None:

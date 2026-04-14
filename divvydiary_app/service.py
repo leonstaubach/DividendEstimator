@@ -1,25 +1,23 @@
-from .client import DivvyDiaryClient
 from .estimator import DividendEstimator, ForecastExplanation
 from .models import (
-    DividendEvent,
     EstimatedSecurityDividendHistory,
     ResolvedPortfolio,
     Security,
     SecurityDividendHistory,
 )
+from .source import PortfolioDataSource
 
 
 class PortfolioService:
-    def __init__(self, client: DivvyDiaryClient, estimator: DividendEstimator | None = None) -> None:
-        self.client = client
+    def __init__(self, source: PortfolioDataSource, estimator: DividendEstimator | None = None) -> None:
+        self.source = source
         self.estimator = estimator or DividendEstimator()
 
     def get_resolved_portfolio(self) -> ResolvedPortfolio:
-        return self.client.get_resolved_portfolio()
+        return self.source.get_resolved_portfolio()
 
     def build_security_dividend_history(self, security: Security) -> SecurityDividendHistory:
-        raw_dividends = self.client.get_symbol_dividends(security.isin)
-        dividends = [DividendEvent.from_api(raw_dividend) for raw_dividend in raw_dividends]
+        dividends = self.source.get_symbol_dividends(security.isin)
         return SecurityDividendHistory(security=security, dividends=dividends)
 
     def build_security_dividend_histories(
@@ -52,10 +50,10 @@ class PortfolioService:
         return resolved_portfolio, self.build_estimated_security_dividend_histories(resolved_portfolio)
 
     def is_data_cached(self) -> bool:
-        return self.client.is_portfolio_cached()
+        return self.source.is_portfolio_cached()
 
     def clear_cache(self) -> None:
-        self.client.clear_cache()
+        self.source.clear_cache()
 
     def explain_forecast(
         self,
