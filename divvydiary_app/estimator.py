@@ -57,6 +57,16 @@ class ForecastExplanation:
     cadence_regime_change: bool
 
 
+@dataclass(frozen=True)
+class PreparedDividendHistory:
+    dividends: list[DividendEvent]
+    cadence: CadenceInfo | None
+    outliers_removed: list[DividendEvent]
+    suspension_detected: bool
+    history_start_date: str | None
+    cadence_regime_change: bool
+
+
 class DividendEstimator:
     SEASONAL_BOUNDARY_SHIFT_DAYS = 14
     RECENCY_WEIGHT_GROWTH = 1.5
@@ -97,13 +107,8 @@ class DividendEstimator:
                 forecast_events=[],
             )
 
-        clean_dividends, _ = self._remove_outliers(confirmed_dividends)
-        effective_dividends, _, _ = self._split_at_suspensions(clean_dividends)
-
-        frequency_hint = history.security.dividend_frequency
-        cadence, _, effective_dividends = self._detect_cadence_with_regime(
-            effective_dividends, frequency_hint
-        )
+        prepared_history = self._prepare_history(confirmed_dividends, history.security.dividend_frequency)
+        cadence = prepared_history.cadence
         if cadence is None:
             return DividendEstimate(
                 next_ex_date=None,
@@ -114,6 +119,7 @@ class DividendEstimator:
                 forecast_events=[],
             )
 
+        effective_dividends = prepared_history.dividends
         forecast_events = self._forecast_events(effective_dividends, cadence)
         first_forecast = forecast_events[0]
         amount, amount_basis, trend_analysis = self._estimate_payment_amount_full(
@@ -140,7 +146,35 @@ class DividendEstimator:
         return sorted(confirmed, key=lambda dividend: dividend.pay_date or "")
 
     def _remove_outliers(
-        self, dividends: list[DividendEvent]
+        self,
+        dividends: list[DividendEvent],
+        cadence_name: str | None = None,
+    ) -> tuple[list[DividendEvent], list[DividendEvent]]:
+        if cadence_name is None or cadence_name == "monthly":
+            return self._remove_outliers_from_group(dividends)
+
+        grouped_dividends: dict[int, list[DividendEvent]] = {}
+        for dividend in dividends:
+            pay_date = self._parse_date(dividend.pay_date)
+            key = self._seasonal_key(cadence_name, pay_date)
+            grouped_dividends.setdefault(key, []).append(dividend)
+
+        clean_ids: set[int] = set()
+        removed_ids: set[int] = set()
+        for seasonal_group in grouped_dividends.values():
+            clean_group, removed_group = self._remove_outliers_from_group(seasonal_group)
+            clean_ids.update(id(dividend) for dividend in clean_group)
+            removed_ids.update(id(dividend) for dividend in removed_group)
+
+        clean = [dividend for dividend in dividends if id(dividend) in clean_ids]
+        removed = [dividend for dividend in dividends if id(dividend) in removed_ids]
+        if len(clean) < 2:
+            return dividends, []
+        return clean, removed
+
+    def _remove_outliers_from_group(
+        self,
+        dividends: list[DividendEvent],
     ) -> tuple[list[DividendEvent], list[DividendEvent]]:
         if len(dividends) < 4:
             return dividends, []
@@ -161,6 +195,31 @@ class DividendEstimator:
         if len(clean) < 2:
             return dividends, []
         return clean, removed
+
+    def _prepare_history(
+        self,
+        confirmed_dividends: list[DividendEvent],
+        frequency_hint: str | None,
+    ) -> PreparedDividendHistory:
+        effective_dividends, suspension_detected, history_start_date = self._split_at_suspensions(
+            confirmed_dividends
+        )
+        provisional_cadence, regime_change, effective_dividends = self._detect_cadence_with_regime(
+            effective_dividends, frequency_hint
+        )
+        clean_dividends, outliers_removed = self._remove_outliers(
+            effective_dividends,
+            provisional_cadence.name if provisional_cadence is not None else None,
+        )
+        cadence = self._detect_cadence(clean_dividends, frequency_hint)
+        return PreparedDividendHistory(
+            dividends=clean_dividends,
+            cadence=cadence or provisional_cadence,
+            outliers_removed=outliers_removed,
+            suspension_detected=suspension_detected,
+            history_start_date=history_start_date,
+            cadence_regime_change=regime_change,
+        )
 
     def _split_at_suspensions(
         self, dividends: list[DividendEvent]
@@ -515,17 +574,15 @@ class DividendEstimator:
         if len(confirmed_dividends) < 2:
             return None
 
-        clean_dividends, outliers_removed = self._remove_outliers(confirmed_dividends)
-        effective_dividends, suspension_detected, history_start_date = self._split_at_suspensions(
-            clean_dividends
-        )
-
-        frequency_hint = history.security.dividend_frequency
-        cadence, regime_change, effective_dividends = self._detect_cadence_with_regime(
-            effective_dividends, frequency_hint
-        )
+        prepared_history = self._prepare_history(confirmed_dividends, history.security.dividend_frequency)
+        cadence = prepared_history.cadence
         if cadence is None:
             return None
+        effective_dividends = prepared_history.dividends
+        outliers_removed = prepared_history.outliers_removed
+        suspension_detected = prepared_history.suspension_detected
+        history_start_date = prepared_history.history_start_date
+        regime_change = prepared_history.cadence_regime_change
 
         monthly_display_dividends = effective_dividends
         # For monthly, iterate like _forecast_events so each step feeds into the next.
