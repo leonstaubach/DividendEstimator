@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import calendar
+import random
 from dataclasses import dataclass
 from datetime import date, timedelta
 from statistics import median, mean, stdev
@@ -131,7 +132,7 @@ class DividendEstimator:
         return DividendEstimate(
             next_ex_date=first_forecast.ex_date,
             next_payment_date=first_forecast.pay_date,
-            next_payment_amount=first_forecast.amount,
+            next_payment_amount=amount,
             confidence=confidence,
             basis=amount_basis,
             forecast_events=forecast_events,
@@ -524,6 +525,29 @@ class DividendEstimator:
         median_gap_days = int(median(ex_to_pay_gaps))
         return (next_pay_date - timedelta(days=median_gap_days)).isoformat()
 
+    def _compute_monthly_variance_factors(self, dividends: list[DividendEvent]) -> list[float]:
+        """Return relative factors (actual / mean) for the last ≤12 actual payments.
+
+        Multiplying a smooth prediction by one of these factors scales it to a
+        historically-plausible value while preserving the current trend level.
+        For a flat asset the factors are all ~1.0; for a variable asset they span
+        the same relative spread as the history.
+        """
+        actual = [d for d in dividends if not d.forecast and d.amount is not None]
+        recent = actual[-12:]
+        amounts = [d.amount for d in recent if d.amount is not None]
+        if len(amounts) < 2:
+            return []
+        mu = mean(amounts)
+        if mu <= 0:
+            return []
+        return [a / mu for a in amounts]
+
+    def _make_forecast_rng(self, dividends: list[DividendEvent]) -> random.Random:
+        actual = [d for d in dividends if not d.forecast and d.amount is not None]
+        seed = hash(tuple(round((d.amount or 0.0) * 1_000_000) for d in actual[-6:]))
+        return random.Random(seed)
+
     def _forecast_events(
         self,
         dividends: list[DividendEvent],
@@ -534,19 +558,44 @@ class DividendEstimator:
         is_monthly = cadence.name == "monthly"
         working_history = list(dividends)
 
+        # For monthly assets: compute the anchor amount once from the original confirmed
+        # history, then vary each of the 12 displayed forecasts around that anchor using
+        # relative historical factors.  This avoids the feedback-loop where feeding an
+        # elevated prediction back into the regression window causes subsequent predictions
+        # to drift monotonically upward.  Dates still use the iterative working_history
+        # approach for timeline consistency (pay_date is all that matters for dates).
+        anchor_amount: float | None = None
+        shuffled_factors: list[float] = []
+        if is_monthly:
+            anchor_pay_date = self._estimate_next_payment_date(dividends, cadence, 1)
+            anchor_amount, _ = self._estimate_payment_amount(dividends, cadence, anchor_pay_date)
+            factors = self._compute_monthly_variance_factors(dividends)
+            if factors:
+                # Tile to cover all 12 forecast steps, then shuffle once with a seeded
+                # RNG.  Using a shuffle (rather than repeated rng.choice) guarantees that
+                # no accidental monotonic ordering can arise from an unlucky seed — every
+                # historical relative scale is used at least once across the 12 steps.
+                rng = self._make_forecast_rng(dividends)
+                pool = (factors * ((event_count // len(factors)) + 1))[:event_count]
+                rng.shuffle(pool)
+                shuffled_factors = pool
+
         for steps_ahead in range(1, event_count + 1):
             if is_monthly:
                 payment_date = self._estimate_next_payment_date(working_history, cadence, 1)
-                amount, _ = self._estimate_payment_amount(working_history, cadence, payment_date)
+                if shuffled_factors and anchor_amount is not None:
+                    displayed_amount: float | None = max(0.0, anchor_amount * shuffled_factors[steps_ahead - 1])
+                else:
+                    displayed_amount = anchor_amount
             else:
                 payment_date = self._estimate_next_payment_date(dividends, cadence, steps_ahead)
-                amount, _ = self._estimate_payment_amount(dividends, cadence, payment_date)
+                displayed_amount, _ = self._estimate_payment_amount(dividends, cadence, payment_date)
             ex_date = self._estimate_next_ex_date(dividends, payment_date)
             forecast_events.append(
                 ForecastDividendEvent(
                     ex_date=ex_date,
                     pay_date=payment_date,
-                    amount=amount,
+                    amount=displayed_amount,
                     currency=dividends[-1].currency,
                     forecast=True,
                 )
@@ -557,7 +606,7 @@ class DividendEstimator:
                         id=-steps_ahead,
                         ex_date=ex_date,
                         pay_date=payment_date,
-                        amount=amount,
+                        amount=displayed_amount,
                         currency=dividends[-1].currency,
                         forecast=True,
                     )
@@ -589,6 +638,19 @@ class DividendEstimator:
         # This gives the explanation for step N the same prior-forecast context that
         # produced the actual forecast event shown in the UI.
         if cadence.name == "monthly" and steps_ahead >= 1:
+            # Mirror _forecast_events(): compute anchor + shuffled factors from the
+            # original confirmed history so prior-step amounts are varianced (not smooth),
+            # matching the bars already shown in the timeline view.
+            anchor_pay_date = self._estimate_next_payment_date(effective_dividends, cadence, 1)
+            anchor_amount, _ = self._estimate_payment_amount(effective_dividends, cadence, anchor_pay_date)
+            factors = self._compute_monthly_variance_factors(effective_dividends)
+            shuffled_factors: list[float] = []
+            if factors:
+                rng = self._make_forecast_rng(effective_dividends)
+                pool = (factors * ((steps_ahead // len(factors)) + 1))[:steps_ahead]
+                rng.shuffle(pool)
+                shuffled_factors = pool
+
             working_history = list(effective_dividends)
             for step in range(1, steps_ahead + 1):
                 step_pay_date = self._estimate_next_payment_date(working_history, cadence, 1)
@@ -596,13 +658,19 @@ class DividendEstimator:
                     working_history, cadence, step_pay_date
                 )
                 step_ex_date = self._estimate_next_ex_date(working_history, step_pay_date)
+                # Use the varianced amount for both the prior-step context and the final
+                # predicted_amount so the modal chart matches the timeline view exactly.
+                if shuffled_factors and anchor_amount is not None:
+                    varianced_amount: float | None = max(0.0, anchor_amount * shuffled_factors[step - 1])
+                else:
+                    varianced_amount = step_amount
                 if step < steps_ahead:
                     working_history.append(
                         DividendEvent(
                             id=-step,
                             ex_date=step_ex_date,
                             pay_date=step_pay_date,
-                            amount=step_amount,
+                            amount=varianced_amount,
                             currency=working_history[-1].currency,
                             forecast=True,
                         )
@@ -610,7 +678,7 @@ class DividendEstimator:
             monthly_display_dividends = working_history
             payment_date = step_pay_date
             ex_date = step_ex_date
-            predicted_amount = step_amount
+            predicted_amount = varianced_amount
             basis = step_basis
             trend_analysis = step_trend
         else:

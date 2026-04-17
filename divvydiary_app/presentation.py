@@ -171,7 +171,6 @@ class ForecastExplanationView:
     is_same_season: bool
     is_last_payment_fallback: bool
     summary_lines: list[str]
-    all_history_rows: list[SecurityHistoryRow]
     relevant_rows: list[ForecastRelevantDividendRow]
     regression_prediction: float | None
     blended_prediction: float | None
@@ -499,7 +498,6 @@ def build_forecast_explanation_view(
         is_same_season=method is BasisMethod.SAME_SEASON,
         is_last_payment_fallback=method is BasisMethod.LAST_PAYMENT_FALLBACK,
         summary_lines=forecast_summary_lines(explanation),
-        all_history_rows=[_history_row(event, history) for event in explanation.all_confirmed_dividends],
         relevant_rows=_build_relevant_rows(history, explanation, method),
         regression_prediction=trend.regression_prediction if trend else None,
         blended_prediction=trend.blended_prediction if trend else None,
