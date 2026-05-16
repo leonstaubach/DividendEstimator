@@ -6,7 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -162,25 +162,22 @@ def create_app(runtime: AppRuntime | None = None) -> FastAPI:
     @app.get("/monthly", response_class=HTMLResponse)
     async def monthly_view(
         request: Request,
-        hide_small_payments: bool = Query(default=False),
     ):
         active_runtime = active()
-        guard = PageGuard("monthly.html", "monthly", {"monthly_view": None, "hide_small_payments": False})
+        guard = PageGuard("monthly.html", "monthly", {"monthly_view": None})
         if (response := _guard_page(request, active_runtime, guard)) is not None:
             return response
 
         resolved_portfolio, estimated_histories = active_runtime.service.load_portfolio_data()
-        minimum_total_amount = 10.0 if hide_small_payments else None
         timeline = build_monthly_timeline_view(
             resolved_portfolio,
             estimated_histories,
             backtest_fn=active_runtime.service.backtest_dividend,
-            minimum_total_amount=minimum_total_amount,
         )
         return templates.TemplateResponse(
             request,
             guard.template_name,
-            _page_context(guard, monthly_view=timeline, hide_small_payments=hide_small_payments),
+            _page_context(guard, monthly_view=timeline),
         )
 
     @app.get("/security/{isin}", response_class=HTMLResponse)
