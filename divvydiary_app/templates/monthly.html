@@ -18,16 +18,6 @@
             </article>
         </div>
     {% elif monthly_view %}
-        <article class="section-card">
-            <div class="section-body">
-                <form method="get" action="/monthly">
-                    <label>
-                        <input type="checkbox" name="hide_small_payments" value="true" {% if hide_small_payments %}checked{% endif %} onchange="this.form.submit()">
-                        Hide small payments (&lt; $10 total)
-                    </label>
-                </form>
-            </div>
-        </article>
         <section class="month-grid">
             {% for month in monthly_view.month_sections %}
                 <details class="month-accordion" {% if month.is_current_month %}open{% endif %}>

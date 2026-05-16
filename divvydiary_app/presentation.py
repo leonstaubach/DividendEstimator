@@ -364,7 +364,6 @@ def build_monthly_timeline_view(
     reference_date: date | None = None,
     forward_months: int = 12,
     backtest_fn: BacktestFn | None = None,
-    minimum_total_amount: float | None = None,
 ) -> MonthlyTimelineView:
     active_date = reference_date or date.today()
     current_month = active_date.replace(day=1)
@@ -377,8 +376,6 @@ def build_monthly_timeline_view(
             include_all_forecasts=True,
             backtest_fn=backtest_fn,
         )
-        if minimum_total_amount is not None:
-            rows = [r for r in rows if (r.total_amount or 0.0) >= minimum_total_amount]
 
         month_sections.append(
             MonthlyTimelineSection(
