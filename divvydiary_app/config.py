@@ -32,7 +32,7 @@ class AppConfig:
     log_level: str = "DEBUG"
     base_url: str = "https://api.divvydiary.com"
     cache_file: Path = Path(".cache/divvydiary_cache.json")
-    cache_ttl_seconds: int = 604800
+    cache_ttl_seconds: int = 1209600
     gcs_bucket: str | None = None
     gcs_blob_name: str = "divvydiary_cache.json"
     gcs_credentials_file: Path | None = None
@@ -50,7 +50,7 @@ class AppConfig:
             portfolio_id=os.getenv("DIVVYDIARY_PORTFOLIO_ID", ""),
             log_level=os.getenv("DIVVYDIARY_LOG_LEVEL", "DEBUG"),
             cache_file=Path(cache_file) if cache_file else env_path.parent / ".cache" / "divvydiary_cache.json",
-            cache_ttl_seconds=int(os.getenv("DIVVYDIARY_CACHE_TTL_SECONDS", "604800")),
+            cache_ttl_seconds=int(os.getenv("DIVVYDIARY_CACHE_TTL_SECONDS", "1209600")),
             gcs_bucket=os.getenv("DIVVYDIARY_GCS_BUCKET") or None,
             gcs_blob_name=os.getenv("DIVVYDIARY_GCS_BLOB_NAME", "divvydiary_cache.json"),
             gcs_credentials_file=gcs_credentials_file,

@@ -11,7 +11,7 @@ _log = get_logger("cache")
 
 
 class _CacheBase:
-    def __init__(self, ttl_seconds: int = 604800) -> None:
+    def __init__(self, ttl_seconds: int = 1209600) -> None:
         self.ttl = timedelta(seconds=ttl_seconds)
 
     def get(self, key: str) -> Any | None:
@@ -107,7 +107,7 @@ class FileCache(_CacheBase):
 
 
 class GCSCache(_CacheBase):
-    def __init__(self, bucket_name: str, blob_name: str = "divvydiary_cache.json", ttl_seconds: int = 604800, credentials_file: Path | None = None) -> None:
+    def __init__(self, bucket_name: str, blob_name: str = "divvydiary_cache.json", ttl_seconds: int = 1209600, credentials_file: Path | None = None) -> None:
         super().__init__(ttl_seconds)
         from google.cloud import storage  # noqa: PLC0415
         from google.oauth2 import service_account  # noqa: PLC0415
