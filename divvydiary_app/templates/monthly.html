@@ -87,7 +87,7 @@
                                                 <div class="backtest-row">
                                                     <a class="backtest-label backtest-explain-link"
                                                        href="/security/{{ row.isin }}/backtest/{{ row.event_id }}/modal"
-                                                       data-forecast-modal-url="/security/{{ row.isin }}/backtest/{{ row.event_id }}/modal">Forecast accuracy ↗</a>
+                                                       data-forecast-modal-url="/security/{{ row.isin }}/backtest/{{ row.event_id }}/modal">{% if row.status.value == 'paid' %}Forecast accuracy{% else %}Forecast vs declared{% endif %} ↗</a>
                                                     <span class="backtest-value">
                                                         <span class="numeric">{{ format_currency(row.backtest.predicted_amount, row.currency, 4) }}</span> predicted
                                                         {% if row.backtest.amount_error_pct is not none %}

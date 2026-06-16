@@ -630,7 +630,7 @@ def monthly_dividend_rows(
             if event.pay_date is None or not is_same_month(event.pay_date, month_date):
                 continue
             status = _dividend_status(event)
-            backtest = backtest_fn(history, event) if backtest_fn and status is DividendStatus.PAID else None
+            backtest = backtest_fn(history, event) if backtest_fn and status in (DividendStatus.PAID, DividendStatus.CONFIRMED) else None
             rows.append(_monthly_row(history, event, status=status, backtest=backtest, event_id=event.id))
             seen_keys.add((event.pay_date, event.amount))
 

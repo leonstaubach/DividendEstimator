@@ -105,6 +105,8 @@ class PortfolioService:
         history: EstimatedSecurityDividendHistory,
         target: DividendEvent,
     ) -> BacktestResult | None:
+        if not target.pay_date:
+            return None
         # Keep all events that are either forecasts (estimator will filter them)
         # or confirmed payments strictly before the target pay date.
         truncated_dividends = [
