@@ -73,8 +73,8 @@ class DividendEstimator:
     RECENCY_WEIGHT_GROWTH = 1.5
     TREND_BLEND_WEIGHT = 0.7
     IQR_OUTLIER_FENCE = 2.5
-    MAX_GROWTH_FACTOR = 1.20
-    MIN_RETENTION_FACTOR = 0.60
+    MAX_GROWTH_FACTOR = 1.10
+    MIN_RETENTION_FACTOR = 0.90
     SUSPENSION_GAP_DAYS = 600
     REGIME_WINDOW = 3
     CADENCE_BUCKETS = {
@@ -375,7 +375,7 @@ class DividendEstimator:
         # Monthly bypass: trend over all recent months, skip seasonal bucketing
         if cadence.name == "monthly":
             recent = dividends[-12:]
-            trend_analysis = self._trend_analysis(recent, reference_amount=None)
+            trend_analysis = self._trend_analysis(recent, reference_amount=latest_dividend.amount)
             if trend_analysis is not None:
                 return trend_analysis.blended_prediction, f"{cadence.name}_trend", trend_analysis
             return latest_dividend.amount, f"{cadence.name}_last_payment_fallback", None
@@ -457,7 +457,7 @@ class DividendEstimator:
         if weight_sum == 0:
             return None
         weighted_growth = sum(r * w for r, w in zip(growth_rates, weights)) / weight_sum
-        return max(-0.25, min(0.30, weighted_growth))
+        return max(-0.10, min(0.10, weighted_growth))
 
     def _score_confidence(
         self,
@@ -569,6 +569,7 @@ class DividendEstimator:
         if is_monthly:
             anchor_pay_date = self._estimate_next_payment_date(dividends, cadence, 1)
             anchor_amount, _ = self._estimate_payment_amount(dividends, cadence, anchor_pay_date)
+            reference_amount = dividends[-1].amount
             factors = self._compute_monthly_variance_factors(dividends)
             if factors:
                 # Tile to cover all 12 forecast steps, then shuffle once with a seeded
@@ -587,6 +588,8 @@ class DividendEstimator:
                     displayed_amount: float | None = max(0.0, anchor_amount * shuffled_factors[steps_ahead - 1])
                 else:
                     displayed_amount = anchor_amount
+                if displayed_amount is not None:
+                    displayed_amount, _ = self._apply_growth_cap(displayed_amount, reference_amount)
             else:
                 payment_date = self._estimate_next_payment_date(dividends, cadence, steps_ahead)
                 displayed_amount, _ = self._estimate_payment_amount(dividends, cadence, payment_date)
@@ -643,6 +646,7 @@ class DividendEstimator:
             # matching the bars already shown in the timeline view.
             anchor_pay_date = self._estimate_next_payment_date(effective_dividends, cadence, 1)
             anchor_amount, _ = self._estimate_payment_amount(effective_dividends, cadence, anchor_pay_date)
+            reference_amount = effective_dividends[-1].amount
             factors = self._compute_monthly_variance_factors(effective_dividends)
             shuffled_factors: list[float] = []
             if factors:
@@ -664,6 +668,8 @@ class DividendEstimator:
                     varianced_amount: float | None = max(0.0, anchor_amount * shuffled_factors[step - 1])
                 else:
                     varianced_amount = step_amount
+                if varianced_amount is not None:
+                    varianced_amount, _ = self._apply_growth_cap(varianced_amount, reference_amount)
                 if step < steps_ahead:
                     working_history.append(
                         DividendEvent(

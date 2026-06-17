@@ -170,7 +170,7 @@ class DividendEstimatorTests(unittest.TestCase):
         estimate = self.estimator.estimate(history)
 
         self.assertEqual(estimate.basis, "quarterly_trend")
-        self.assertAlmostEqual(estimate.next_payment_amount or 0.0, 1.3360810810810813)
+        self.assertAlmostEqual(estimate.next_payment_amount or 0.0, 1.375)
 
     def test_explain_forecast_returns_same_season_reasoning(self) -> None:
         history = self.make_history([
@@ -216,7 +216,7 @@ class DividendEstimatorTests(unittest.TestCase):
         self.assertIsNotNone(explanation.trend_analysis)
         assert explanation.trend_analysis is not None
         self.assertEqual(len(explanation.trend_analysis.points), 3)
-        self.assertAlmostEqual(explanation.trend_analysis.blended_prediction, 1.3360810810810813)
+        self.assertAlmostEqual(explanation.trend_analysis.blended_prediction, 1.375)
 
     def test_seasonal_slots_tolerate_small_month_boundary_shifts(self) -> None:
         dividends = [

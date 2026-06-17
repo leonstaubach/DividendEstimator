@@ -138,6 +138,82 @@ class SeasonalOutlierEstimatorTests(unittest.TestCase):
             "2025-03-25",
         )
 
+    def test_quarterly_yoy_spike_is_capped_at_ten_percent_above_same_season_reference(self) -> None:
+        history = self.make_history([
+            ("2023-03-31", "2023-03-14", 1.00),
+            ("2023-06-30", "2023-06-13", 1.00),
+            ("2023-09-30", "2023-09-13", 1.00),
+            ("2023-12-31", "2023-12-14", 1.00),
+            ("2024-03-31", "2024-03-14", 1.00),
+            ("2024-06-30", "2024-06-13", 2.00),
+            ("2024-09-30", "2024-09-13", 1.00),
+            ("2024-12-31", "2024-12-14", 1.00),
+            ("2025-03-31", "2025-03-14", 1.00),
+        ])
+
+        estimate = self.estimator.estimate(history)
+        explanation = self.estimator.explain_forecast(history, steps_ahead=1)
+
+        self.assertEqual(estimate.basis, "quarterly_trend")
+        self.assertAlmostEqual(estimate.next_payment_amount or 0.0, 2.20)
+        self.assertIsNotNone(explanation)
+        assert explanation is not None
+        self.assertAlmostEqual(explanation.predicted_amount or 0.0, 2.20)
+        self.assertIsNotNone(explanation.trend_analysis)
+        assert explanation.trend_analysis is not None
+        self.assertAlmostEqual(explanation.trend_analysis.growth_rate or 0.0, 0.10)
+
+    def test_quarterly_yoy_cut_is_floored_at_ten_percent_below_same_season_reference(self) -> None:
+        history = self.make_history([
+            ("2023-03-31", "2023-03-14", 1.00),
+            ("2023-06-30", "2023-06-13", 2.00),
+            ("2023-09-30", "2023-09-13", 1.00),
+            ("2023-12-31", "2023-12-14", 1.00),
+            ("2024-03-31", "2024-03-14", 1.00),
+            ("2024-06-30", "2024-06-13", 1.00),
+            ("2024-09-30", "2024-09-13", 1.00),
+            ("2024-12-31", "2024-12-14", 1.00),
+            ("2025-03-31", "2025-03-14", 1.00),
+        ])
+
+        estimate = self.estimator.estimate(history)
+        explanation = self.estimator.explain_forecast(history, steps_ahead=1)
+
+        self.assertEqual(estimate.basis, "quarterly_trend")
+        self.assertAlmostEqual(estimate.next_payment_amount or 0.0, 0.90)
+        self.assertIsNotNone(explanation)
+        assert explanation is not None
+        self.assertAlmostEqual(explanation.predicted_amount or 0.0, 0.90)
+        self.assertIsNotNone(explanation.trend_analysis)
+        assert explanation.trend_analysis is not None
+        self.assertAlmostEqual(explanation.trend_analysis.growth_rate or 0.0, -0.10)
+
+    def test_monthly_variance_adjusted_forecasts_stay_within_latest_payment_cap(self) -> None:
+        self.security.dividend_frequency = "monthly"
+        history = self.make_history([
+            ("2024-01-31", "2024-01-26", 0.50),
+            ("2024-02-29", "2024-02-24", 1.50),
+            ("2024-03-31", "2024-03-26", 0.50),
+            ("2024-04-30", "2024-04-25", 1.50),
+            ("2024-05-31", "2024-05-26", 0.50),
+            ("2024-06-30", "2024-06-25", 1.50),
+            ("2024-07-31", "2024-07-26", 0.50),
+            ("2024-08-31", "2024-08-26", 1.50),
+            ("2024-09-30", "2024-09-25", 0.50),
+            ("2024-10-31", "2024-10-26", 1.50),
+            ("2024-11-30", "2024-11-25", 0.50),
+            ("2024-12-31", "2024-12-26", 1.00),
+        ])
+
+        estimate = self.estimator.estimate(history)
+
+        self.assertEqual(len(estimate.forecast_events), 12)
+        for event in estimate.forecast_events:
+            self.assertIsNotNone(event.amount)
+            assert event.amount is not None
+            self.assertGreaterEqual(event.amount, 0.90)
+            self.assertLessEqual(event.amount, 1.10)
+
 
 if __name__ == "__main__":
     unittest.main()

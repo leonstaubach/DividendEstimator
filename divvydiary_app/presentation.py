@@ -769,7 +769,7 @@ def _narrate_trend(explanation: ForecastExplanation) -> list[str]:
         )
     if trend is not None and trend.was_capped:
         lines.append(
-            f"The raw prediction was capped to the allowed growth range (−40% / +20% of the reference payment). Uncapped value was {trend.uncapped_prediction:.4f}."
+            f"The raw prediction was capped to the allowed ±10% range of the reference payment. Uncapped value was {trend.uncapped_prediction:.4f}."
         )
     return lines
 
